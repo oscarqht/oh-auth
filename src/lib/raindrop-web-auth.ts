@@ -85,6 +85,26 @@ export function isStoredProviderTokenExpired(
   return tokens.expiresAt <= Date.now() + bufferMs;
 }
 
+export function areStoredProviderTokensEqual(
+  left: StoredProviderTokens | null,
+  right: StoredProviderTokens | null,
+) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.provider === right.provider &&
+    left.accessToken === right.accessToken &&
+    left.refreshToken === right.refreshToken &&
+    left.expiresAt === right.expiresAt
+  );
+}
+
 export function buildWebOauthStorageScript(
   providerId: string,
   tokenPayload: unknown,

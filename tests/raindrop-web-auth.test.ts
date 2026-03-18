@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  areStoredProviderTokensEqual,
   buildWebOauthStorageScript,
   getProviderTokenStorageKey,
   sanitizeWebRedirectTarget,
@@ -83,5 +84,50 @@ describe('buildWebOauthStorageScript', () => {
     assert.ok(script?.includes('/raindrop'));
     assert.ok(script?.includes('window.localStorage.setItem'));
     assert.ok(script?.includes('window.location.replace'));
+  });
+});
+
+describe('areStoredProviderTokensEqual', () => {
+  it('treats equivalent token payloads as equal even when they are different objects', () => {
+    const left = {
+      provider: 'raindrop',
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      expiresAt: 3_601_000,
+    };
+    const right = { ...left };
+
+    assert.equal(areStoredProviderTokensEqual(left, right), true);
+  });
+
+  it('detects when any persisted token field changes', () => {
+    const base = {
+      provider: 'raindrop',
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      expiresAt: 3_601_000,
+    };
+
+    assert.equal(
+      areStoredProviderTokensEqual(base, {
+        ...base,
+        accessToken: 'new-access-token',
+      }),
+      false,
+    );
+    assert.equal(
+      areStoredProviderTokensEqual(base, {
+        ...base,
+        refreshToken: 'new-refresh-token',
+      }),
+      false,
+    );
+    assert.equal(
+      areStoredProviderTokensEqual(base, {
+        ...base,
+        expiresAt: 9_999_000,
+      }),
+      false,
+    );
   });
 });

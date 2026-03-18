@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { Nunito } from 'next/font/google';
 import type {
   RaindropSearchResponse,
   SessionDetails,
@@ -12,9 +14,18 @@ import {
   fetchRaindropJson,
   getRaindropAuthHref,
 } from '@/lib/raindrop-client';
-import type { StoredProviderTokens } from '@/lib/raindrop-web-auth';
+import {
+  areStoredProviderTokensEqual,
+  type StoredProviderTokens,
+} from '@/lib/raindrop-web-auth';
+import styles from './page.module.css';
 
 type AuthState = 'checking' | 'redirecting' | 'ready' | 'error';
+
+const nunito = Nunito({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+});
 
 type SearchResult =
   | {
@@ -92,16 +103,12 @@ function SearchResults({
   error: string | null;
 }) {
   if (query.trim().length < 3) {
-    return (
-      <div className="rounded-xl border border-dashed border-base-300 px-4 py-8 text-center text-sm text-base-content/60">
-        Enter at least 3 characters to search Raindrop items and collections.
-      </div>
-    );
+    return null;
   }
 
   if (searching) {
     return (
-      <div className="flex items-center justify-center gap-3 rounded-xl border border-base-300 px-4 py-8 text-sm text-base-content/70">
+      <div className="flex items-center justify-center gap-3 rounded-2xl border border-base-300/80 px-4 py-7 text-sm text-base-content/70">
         <span className="loading loading-spinner loading-sm" />
         Searching Raindrop...
       </div>
@@ -110,7 +117,7 @@ function SearchResults({
 
   if (error) {
     return (
-      <div className="rounded-xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
+      <div className="rounded-2xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
         {error}
       </div>
     );
@@ -118,7 +125,7 @@ function SearchResults({
 
   if (results.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-base-300 px-4 py-8 text-center text-sm text-base-content/60">
+      <div className="rounded-2xl border border-dashed border-base-300/80 px-4 py-7 text-center text-sm text-base-content/60">
         No results found.
       </div>
     );
@@ -135,7 +142,7 @@ function SearchResults({
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="group block rounded-xl border border-base-300 bg-base-100 px-4 py-3 transition hover:border-base-content/20 hover:bg-base-200/60"
+              className="group block rounded-2xl border border-base-300/70 bg-base-100/80 px-4 py-3 transition hover:border-base-content/20 hover:bg-base-200/60"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -172,7 +179,7 @@ function SearchResults({
             href={getCollectionHref(result.data._id)}
             target="_blank"
             rel="noreferrer"
-            className="group block rounded-xl border border-base-300 bg-base-100 px-4 py-3 transition hover:border-base-content/20 hover:bg-base-200/60"
+            className="group block rounded-2xl border border-base-300/70 bg-base-100/80 px-4 py-3 transition hover:border-base-content/20 hover:bg-base-200/60"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -221,17 +228,17 @@ function SessionTree({ details }: { details: SessionDetails }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {details.windows.map((windowItem, index) => (
         <details
           key={`window-${windowItem.id}-${index}`}
-          className="rounded-lg border border-base-300 bg-base-100/60"
+          className="overflow-hidden rounded-lg border border-base-300 bg-base-100/60"
           open
         >
           <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-base-content/55">
             Window {index + 1}
           </summary>
-          <div className="space-y-2 px-3 pb-3">
+          <div className="min-w-0 space-y-2 px-3 pb-3">
             {windowItem.tree.map((node, nodeIndex) => {
               if (node.type === 'tab') {
                 return (
@@ -240,29 +247,28 @@ function SessionTree({ details }: { details: SessionDetails }) {
                     href={node.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-between rounded-md px-2 py-2 text-sm transition hover:bg-base-200"
+                    className="flex items-start justify-between gap-3 overflow-hidden rounded-md px-2 py-2 text-sm transition hover:bg-base-200"
                   >
-                    <div className="min-w-0">
-                      <div className="truncate">{node.title || node.url}</div>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <div className="break-words">{node.title || node.url}</div>
                       <div className="truncate text-xs text-base-content/55">
                         {node.url}
                       </div>
                     </div>
-                    <span className="text-base-content/40">↗</span>
+                    <span className="shrink-0 text-base-content/40">↗</span>
                   </a>
                 );
               }
 
               return (
-                <details
-                  key={`group-${node.id}-${nodeIndex}`}
-                  className="rounded-md border border-base-300 bg-base-100"
-                  open={!node.collapsed}
-                >
-                  <summary className="cursor-pointer px-2 py-2 text-sm font-medium">
+                  <div
+                    key={`group-${node.id}-${nodeIndex}`}
+                    className="min-w-0 rounded-md bg-transparent"
+                  >
+                  <div className="px-2 py-2 text-sm font-medium">
                     <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ backgroundColor: node.color || 'gray' }} />
                     {node.title}
-                  </summary>
+                  </div>
                   <div className="space-y-1 px-3 pb-3">
                     {node.tabs.map((tab) => (
                       <a
@@ -270,21 +276,21 @@ function SessionTree({ details }: { details: SessionDetails }) {
                         href={tab.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-between rounded-md px-2 py-2 text-sm transition hover:bg-base-200"
+                        className="flex items-start justify-between gap-3 overflow-hidden rounded-md px-2 py-2 text-sm transition hover:bg-base-200"
                       >
-                        <div className="min-w-0">
-                          <div className="truncate">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <div className="break-words">
                             {tab.title || tab.url}
                           </div>
                           <div className="truncate text-xs text-base-content/55">
                             {tab.url}
                           </div>
                         </div>
-                        <span className="text-base-content/40">↗</span>
+                        <span className="shrink-0 text-base-content/40">↗</span>
                       </a>
                     ))}
                   </div>
-                </details>
+                </div>
               );
             })}
           </div>
@@ -323,6 +329,14 @@ export default function RaindropPage() {
     () => buildSearchResults(searchResponse),
     [searchResponse],
   );
+  const showSearchResults = query.trim().length >= 3;
+  function syncResolvedTokens(nextTokens: StoredProviderTokens) {
+    setTokens((current) =>
+      areStoredProviderTokensEqual(current, nextTokens) ? current : nextTokens,
+    );
+    setAuthError(null);
+    setAuthState('ready');
+  }
 
   async function resolveTokens() {
     try {
@@ -333,9 +347,7 @@ export default function RaindropPage() {
         return null;
       }
 
-      setTokens(nextTokens);
-      setAuthState('ready');
-      setAuthError(null);
+      syncResolvedTokens(nextTokens);
       return nextTokens;
     } catch (error) {
       setAuthState('error');
@@ -402,10 +414,33 @@ export default function RaindropPage() {
     }
   }
 
+  function toggleSession(sessionId: number, expanded: boolean) {
+    setExpandedSessions((current) => ({
+      ...current,
+      [sessionId]: !expanded,
+    }));
+
+    if (!expanded && !sessionDetails[sessionId]) {
+      void loadSessionDetails(sessionId);
+    }
+  }
+
   function handleReconnect() {
     clearStoredRaindropTokens();
     setAuthState('redirecting');
     window.location.replace(getRaindropAuthHref('/raindrop'));
+  }
+
+  function handleLogout() {
+    clearStoredRaindropTokens();
+    setTokens(null);
+    setSearchResponse(null);
+    setSessions([]);
+    setExpandedSessions({});
+    setSessionDetails({});
+    setSessionDetailErrors({});
+    setSessionDetailLoading({});
+    window.location.replace('/');
   }
 
   useEffect(() => {
@@ -423,8 +458,7 @@ export default function RaindropPage() {
           return;
         }
 
-        setTokens(nextTokens);
-        setAuthState('ready');
+        syncResolvedTokens(nextTokens);
       } catch (error) {
         if (!cancelled) {
           setAuthState('error');
@@ -502,12 +536,21 @@ export default function RaindropPage() {
 
   if (authState === 'checking' || authState === 'redirecting') {
     return (
-      <main className="min-h-screen bg-base-200 text-base-content">
-        <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6 py-12">
-          <div className="w-full max-w-xl rounded-3xl border border-base-300 bg-base-100 p-10 text-center shadow-xl">
-            <span className="badge badge-primary mb-4">Raindrop Workspace</span>
-            <h1 className="text-3xl font-bold">Connecting to Raindrop</h1>
-            <p className="mt-3 text-base-content/70">
+      <main className={`${nunito.className} ${styles.page}`}>
+        <div className={styles.stateLayout}>
+          <div className={`${styles.card} ${styles.stateCard}`}>
+            <div className={styles.brand}>
+              <Image
+                src="/img/provider-raindrop-icon.png"
+                alt="Raindrop"
+                width={32}
+                height={32}
+                className={styles.brandIcon}
+              />
+              <span>Raindrop</span>
+            </div>
+            <h1 className={styles.stateTitle}>Connecting to Raindrop</h1>
+            <p className={styles.stateMessage}>
               {authState === 'checking'
                 ? 'Checking your saved Raindrop session.'
                 : 'Redirecting you to Raindrop OAuth.'}
@@ -518,9 +561,11 @@ export default function RaindropPage() {
                 Please wait...
               </span>
             </div>
-            <a href={getRaindropAuthHref('/raindrop')} className="btn btn-primary mt-8">
-              Continue manually
-            </a>
+            <div className={styles.stateActions}>
+              <a href={getRaindropAuthHref('/raindrop')} className="btn btn-primary">
+                Continue manually
+              </a>
+            </div>
           </div>
         </div>
       </main>
@@ -529,15 +574,24 @@ export default function RaindropPage() {
 
   if (authState === 'error') {
     return (
-      <main className="min-h-screen bg-base-200 text-base-content">
-        <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6 py-12">
-          <div className="w-full max-w-xl rounded-3xl border border-error/20 bg-base-100 p-10 text-center shadow-xl">
-            <span className="badge badge-error mb-4">Raindrop Workspace</span>
-            <h1 className="text-3xl font-bold">Could not validate login</h1>
-            <p className="mt-3 text-base-content/70">
+      <main className={`${nunito.className} ${styles.page}`}>
+        <div className={styles.stateLayout}>
+          <div className={`${styles.card} ${styles.stateCard}`}>
+            <div className={styles.brand}>
+              <Image
+                src="/img/provider-raindrop-icon.png"
+                alt="Raindrop"
+                width={32}
+                height={32}
+                className={styles.brandIcon}
+              />
+              <span>Raindrop</span>
+            </div>
+            <h1 className={styles.stateTitle}>Could not validate login</h1>
+            <p className={styles.stateMessage}>
               {authError ?? 'The stored Raindrop session could not be used.'}
             </p>
-            <div className="mt-8 flex items-center justify-center gap-3">
+            <div className={styles.stateActions}>
               <button className="btn btn-primary" onClick={handleReconnect}>
                 Reconnect Raindrop
               </button>
@@ -565,189 +619,181 @@ export default function RaindropPage() {
   }
 
   return (
-    <main className="min-h-screen bg-base-200 text-base-content">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 md:px-6 md:py-10">
-        <header className="rounded-3xl border border-base-300 bg-base-100 p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <span className="badge badge-primary">Raindrop Workspace</span>
-              <h1 className="mt-3 text-3xl font-bold">Search and browse sessions</h1>
-              <p className="mt-2 max-w-3xl text-sm text-base-content/70 md:text-base">
-                This page reuses the same Raindrop data model as the extension
-                popup. Search across items and collections, then inspect session
-                collections under <code>nenya / sessions</code>.
-              </p>
+    <main className={`${nunito.className} ${styles.page}`}>
+      <div className={styles.shell}>
+        <div className={styles.content}>
+          <header className={styles.header}>
+            <div className={styles.brand}>
+              <Image
+                src="/img/provider-raindrop-icon.png"
+                alt="Raindrop"
+                width={32}
+                height={32}
+                className={styles.brandIcon}
+              />
+              <span>Raindrop</span>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="rounded-2xl bg-base-200 px-4 py-3 text-sm">
-                <div className="font-medium">Signed in</div>
-                <div className="text-base-content/60">
-                  Token expires {tokens ? formatTimestamp(new Date(tokens.expiresAt).toISOString()) : 'Unknown'}
-                </div>
-              </div>
-              <button className="btn btn-outline" onClick={handleReconnect}>
-                Reconnect
+            <div className={styles.headerActions}>
+              <button className="btn btn-sm btn-outline" onClick={handleLogout}>
+                Log out
               </button>
             </div>
+          </header>
+
+          <div className={styles.statusRow}>
+            {tokens
+              ? `Signed in. Token expires ${formatTimestamp(
+                  new Date(tokens.expiresAt).toISOString(),
+                )}.`
+              : ''}
           </div>
-        </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <article className="rounded-3xl border border-base-300 bg-base-100 p-5 shadow-sm md:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">Search</h2>
-                <p className="text-sm text-base-content/60">
-                  Matches Raindrop items and collections.
-                </p>
+          <section className={styles.main}>
+            <article
+              className={`${styles.card} ${styles.searchCard}`}
+              aria-labelledby="bookmarks-search-heading"
+            >
+              <h1 id="bookmarks-search-heading" className="sr-only">
+                Bookmarks Search
+              </h1>
+              <div className="space-y-3">
+                <label className={styles.softInput}>
+                  <span className="text-base-content/45">⌕</span>
+                  <span className={styles.softInputFieldWrap}>
+                    <input
+                      type="text"
+                      inputMode="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search bookmarks..."
+                      className={styles.softInputField}
+                    />
+                  </span>
+                </label>
+
+                {showSearchResults ? (
+                  <div className={styles.scrollArea}>
+                    <SearchResults
+                      results={searchResults}
+                      query={query}
+                      searching={searching}
+                      error={searchError}
+                    />
+                  </div>
+                ) : null}
               </div>
-              <a
-                href="https://app.raindrop.io/my/0"
-                target="_blank"
-                rel="noreferrer"
-                className="link link-primary text-sm"
-              >
-                Open Raindrop
-              </a>
-            </div>
+            </article>
 
-            <label className="input input-bordered flex h-14 w-full items-center gap-3 rounded-2xl border-base-300 px-4">
-              <span className="text-base-content/45">⌕</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search bookmarks, sessions, and collections..."
-                className="grow bg-transparent"
-              />
-            </label>
-
-            <div className="mt-4">
-              <SearchResults
-                results={searchResults}
-                query={query}
-                searching={searching}
-                error={searchError}
-              />
-            </div>
-          </article>
-
-          <article className="rounded-3xl border border-base-300 bg-base-100 p-5 shadow-sm md:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">Sessions</h2>
-                <p className="text-sm text-base-content/60">
-                  Child collections from <code>nenya / sessions</code>.
-                </p>
+            <article
+              className={`${styles.card} ${styles.sessionsCard}`}
+              aria-labelledby="sessions-heading"
+            >
+              <div className={styles.sectionHeader}>
+                <h2 id="sessions-heading" className={styles.eyebrow}>
+                  Sessions
+                </h2>
+                {sessionsLoading ? (
+                  <span className="text-[10px] italic text-base-content/45">
+                    loading...
+                  </span>
+                ) : null}
               </div>
-              {sessionsLoading ? (
-                <span className="text-xs italic text-base-content/45">
-                  loading...
-                </span>
+
+              {sessionsError ? (
+                <div className="rounded-2xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
+                  {sessionsError}
+                </div>
               ) : null}
-            </div>
 
-            {sessionsError ? (
-              <div className="rounded-xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
-                {sessionsError}
-              </div>
-            ) : null}
+              {!sessionsLoading && !sessionsError && sessions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-base-300/80 px-4 py-7 text-center text-sm text-base-content/60">
+                  No session collections were found in Raindrop.
+                </div>
+              ) : null}
 
-            {!sessionsLoading && !sessionsError && sessions.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-base-300 px-4 py-8 text-center text-sm text-base-content/60">
-                No session collections were found in Raindrop.
-              </div>
-            ) : null}
+              <div className={styles.sessionsList}>
+                {sessions.map((session) => {
+                  const expanded = Boolean(expandedSessions[session.id]);
+                  const coverUrl = getCoverUrl(session.cover);
 
-            <div className="space-y-3">
-              {sessions.map((session) => {
-                const expanded = Boolean(expandedSessions[session.id]);
-                const coverUrl = getCoverUrl(session.cover);
-
-                return (
-                  <div
-                    key={session.id}
-                    className="overflow-hidden rounded-2xl border border-base-300 bg-base-100"
-                  >
-                    <div className="flex items-start justify-between gap-3 px-4 py-4 transition hover:bg-base-200/60">
-                      <button
-                        className="flex min-w-0 flex-1 items-start gap-3 text-left"
-                        onClick={() => {
-                          setExpandedSessions((current) => ({
-                            ...current,
-                            [session.id]: !expanded,
-                          }));
-
-                          if (!expanded && !sessionDetails[session.id]) {
-                            void loadSessionDetails(session.id);
-                          }
-                        }}
-                      >
-                        <div className="flex min-w-0 items-start gap-3">
+                  return (
+                    <div
+                      id={`session-${session.id}`}
+                      key={session.id}
+                      className={`${styles.sessionRow} ${
+                        expanded ? styles.sessionRowExpanded : ''
+                      }`}
+                    >
+                      <div className={styles.sessionHeader}>
+                        <button
+                          type="button"
+                          className={styles.sessionToggle}
+                          onClick={() => toggleSession(session.id, expanded)}
+                        >
                           <span
-                            className={`mt-1 text-xs transition ${
-                              expanded ? 'rotate-90' : ''
+                            className={`${styles.sessionChevron} ${
+                              expanded ? styles.sessionChevronExpanded : ''
                             }`}
                           >
                             ▶
                           </span>
-                          {coverUrl ? (
-                            <img
-                              src={coverUrl}
-                              alt=""
-                              className="mt-0.5 h-10 w-10 rounded-xl object-cover"
-                            />
-                          ) : (
-                            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-base-200 text-lg">
-                              ☔
-                            </div>
-                          )}
+                          <div className={styles.sessionAvatar}>
+                            {coverUrl ? (
+                              <img
+                                src={coverUrl}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-sm">☔</span>
+                            )}
+                          </div>
                           <div className="min-w-0">
-                            <div className="truncate font-medium">
+                            <div className={`${styles.sessionTitle} truncate`}>
                               {session.title}
                             </div>
-                            <div className="mt-1 text-xs text-base-content/55">
-                              Last active {formatTimestamp(session.lastAction)}
+                            <div className={styles.sessionMeta}>
+                              Last active: {formatTimestamp(session.lastAction)}
                             </div>
                           </div>
-                        </div>
-                      </button>
-                      <a
-                        href={getCollectionHref(session.id)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-ghost btn-sm"
-                      >
-                        Open
-                      </a>
-                    </div>
-
-                    {expanded ? (
-                      <div className="border-t border-base-300 px-4 py-4">
-                        {sessionDetailLoading[session.id] ? (
-                          <div className="flex items-center gap-3 rounded-xl border border-base-300 px-4 py-6 text-sm text-base-content/60">
-                            <span className="loading loading-spinner loading-sm" />
-                            Loading session details...
-                          </div>
-                        ) : null}
-
-                        {sessionDetailErrors[session.id] ? (
-                          <div className="rounded-xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
-                            {sessionDetailErrors[session.id]}
-                          </div>
-                        ) : null}
-
-                        {sessionDetails[session.id] ? (
-                          <SessionTree details={sessionDetails[session.id]!} />
-                        ) : null}
+                        </button>
+                        <a
+                          href={getCollectionHref(session.id)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.sessionLink}
+                        >
+                          Open
+                        </a>
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </article>
-        </section>
+
+                      {expanded ? (
+                        <div className={styles.sessionDetails}>
+                          {sessionDetailLoading[session.id] ? (
+                            <div className="flex items-center gap-3 rounded-2xl border border-base-300/80 px-4 py-6 text-sm text-base-content/60">
+                              <span className="loading loading-spinner loading-sm" />
+                              Loading session details...
+                            </div>
+                          ) : null}
+
+                          {sessionDetailErrors[session.id] ? (
+                            <div className="rounded-2xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
+                              {sessionDetailErrors[session.id]}
+                            </div>
+                          ) : null}
+
+                          {sessionDetails[session.id] ? (
+                            <SessionTree details={sessionDetails[session.id]!} />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </article>
+          </section>
+        </div>
       </div>
     </main>
   );
