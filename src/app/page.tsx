@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   const providers = [
     {
@@ -53,19 +55,19 @@ export default function Home() {
                 <p>{provider.description}</p>
                 <div className="card-actions items-center justify-between">
                   <div className="flex gap-2">
-                    <a
+                    <Link
                       className="btn btn-primary"
                       href={`/auth/${provider.id}`}
                     >
                       Start auth
-                    </a>
+                    </Link>
                     {provider.id === 'google' ? (
-                      <a
+                      <Link
                         className="btn btn-secondary"
                         href="/auth/google?scope=https://www.googleapis.com/auth/calendar&show_token=true"
                       >
                         Test Calendar Scope
-                      </a>
+                      </Link>
                     ) : null}
                   </div>
                   <a

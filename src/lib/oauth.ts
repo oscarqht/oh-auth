@@ -110,7 +110,7 @@ export function buildAuthorizationUrl(
       if (typeof parsed === 'object' && parsed !== null) {
         stateObj = parsed;
       }
-    } catch (e) {
+    } catch {
       // not a json. Maybe it's a random UUID.
       if (state) {
         stateObj.originalState = state;

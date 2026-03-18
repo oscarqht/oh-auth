@@ -5,6 +5,10 @@ import {
   getProviderConfig,
   loadProviderEnv,
 } from '@/lib/oauth';
+import {
+  buildWebOauthStorageScript,
+  sanitizeWebRedirectTarget,
+} from '@/lib/raindrop-web-auth';
 
 type RouteContext = {
   params: Promise<{
@@ -19,6 +23,7 @@ type ResolvedParams = {
 type ParsedState = {
   extensionId?: string;
   show_token?: boolean;
+  webRedirectTo?: string;
 };
 
 type ProviderOutcome = 'success' | 'failure' | 'unknown';
@@ -56,6 +61,14 @@ function parseState(state: string | null): ParsedState {
         result.show_token = Boolean(
           (parsed as Record<string, unknown>).show_token,
         );
+      }
+      if ('webRedirectTo' in parsed) {
+        const redirectTarget = sanitizeWebRedirectTarget(
+          (parsed as Record<string, unknown>).webRedirectTo,
+        );
+        if (redirectTarget) {
+          result.webRedirectTo = redirectTarget;
+        }
       }
       return result;
     }
@@ -375,6 +388,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const extensionId = state.extensionId;
     if (!extensionId) {
+      if (state.webRedirectTo) {
+        const script = buildWebOauthStorageScript(
+          provider.id,
+          tokens,
+          state.webRedirectTo,
+        );
+
+        if (script) {
+          return renderCardPage(
+            'Authentication complete',
+            'Authentication complete. Redirecting back to the Raindrop workspace.',
+            { script, providerId, outcome: 'success' },
+          );
+        }
+      }
+
       const showToken = state.show_token;
       if (showToken) {
         return renderCardPage(

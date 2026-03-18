@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 import { refreshAccessToken, getProviderConfig } from '../src/lib/oauth';
 
+type MockFetchInit = RequestInit & {
+  headers?: Record<string, string>;
+};
+
 describe('refreshAccessToken', () => {
   it('calls Raindrop token endpoint with JSON format', async () => {
     const provider = getProviderConfig('raindrop')!;
@@ -20,13 +24,16 @@ describe('refreshAccessToken', () => {
 
     // Mock global fetch
     const originalFetch = global.fetch;
-    // @ts-ignore
     global.fetch = mock.fn(async (url, init) => {
       assert.strictEqual(url, provider.tokenUrl);
       assert.strictEqual(init?.method, 'POST');
-      assert.strictEqual((init?.headers as any)?.['content-type'], 'application/json');
+      const requestInit = init as MockFetchInit | undefined;
+      assert.strictEqual(
+        requestInit?.headers?.['content-type'],
+        'application/json',
+      );
 
-      const body = JSON.parse(init?.body as string);
+      const body = JSON.parse(requestInit?.body as string);
       assert.strictEqual(body.client_id, env.clientId);
       assert.strictEqual(body.client_secret, env.clientSecret);
       assert.strictEqual(body.grant_type, 'refresh_token');
@@ -63,13 +70,16 @@ describe('refreshAccessToken', () => {
 
     // Mock global fetch
     const originalFetch = global.fetch;
-    // @ts-ignore
     global.fetch = mock.fn(async (url, init) => {
       assert.strictEqual(url, provider.tokenUrl);
       assert.strictEqual(init?.method, 'POST');
-      assert.strictEqual((init?.headers as any)?.['content-type'], 'application/x-www-form-urlencoded');
+      const requestInit = init as MockFetchInit | undefined;
+      assert.strictEqual(
+        requestInit?.headers?.['content-type'],
+        'application/x-www-form-urlencoded',
+      );
 
-      const body = new URLSearchParams(init?.body as string);
+      const body = new URLSearchParams(requestInit?.body as string);
       assert.strictEqual(body.get('client_id'), env.clientId);
       assert.strictEqual(body.get('client_secret'), env.clientSecret);
       assert.strictEqual(body.get('grant_type'), 'refresh_token');
