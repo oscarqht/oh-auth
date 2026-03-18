@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const body = await request.json();
     refreshToken = body.refresh_token;
-  } catch (error) {
+  } catch {
     // Fallback to form data if JSON parsing fails
     try {
       const formData = await request.formData();
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (typeof val === 'string') {
         refreshToken = val;
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
