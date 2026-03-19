@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function Home() {
@@ -43,9 +44,11 @@ export default function Home() {
             <div key={provider.id} className="card bg-base-100 shadow">
               {provider.image ? (
                 <figure className="pt-6">
-                  <img
+                  <Image
                     src={provider.image}
                     alt={provider.name}
+                    width={320}
+                    height={320}
                     className="mx-auto h-80 w-80"
                   />
                 </figure>

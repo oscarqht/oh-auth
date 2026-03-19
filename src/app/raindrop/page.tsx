@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import Image from 'next/image';
 import { Nunito } from 'next/font/google';
 import type {
@@ -18,9 +24,21 @@ import {
   areStoredProviderTokensEqual,
   type StoredProviderTokens,
 } from '@/lib/raindrop-web-auth';
+import {
+  getPinnedResultColor,
+  loadPinnedRaindropResults,
+  savePinnedRaindropResults,
+  toPinnedRaindropResult,
+  togglePinnedRaindropResult,
+  type PinnedRaindropResult,
+} from '@/lib/raindrop-pins';
 import styles from './page.module.css';
 
 type AuthState = 'checking' | 'redirecting' | 'ready' | 'error';
+type ToastState = {
+  id: number;
+  message: string;
+} | null;
 const RAINDROP_ICON_HREF = '/img/provider-raindrop-icon.png';
 
 const nunito = Nunito({
@@ -100,16 +118,85 @@ function buildSearchResults(response: RaindropSearchResponse | null) {
   ];
 }
 
+function getSearchResultKey(result: SearchResult) {
+  return `${result.type}:${result.data._id}`;
+}
+
+function getBadgeClassName(tone: 'ghost' | 'accent') {
+  return `badge badge-sm ${tone === 'accent' ? 'badge-accent' : 'badge-ghost'}`;
+}
+
+function PinButton({
+  pinned,
+  onClick,
+}: {
+  pinned: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${styles.pinButton} ${pinned ? styles.pinButtonPinned : ''}`}
+      aria-label={pinned ? 'Unpin result' : 'Pin result'}
+      title={pinned ? 'Unpin result' : 'Pin result'}
+    >
+      <span aria-hidden="true">{pinned ? '📌' : '📌'}</span>
+    </button>
+  );
+}
+
+function SearchResultRow({
+  icon,
+  href,
+  title,
+  subtitle,
+  badges,
+  pinned,
+  onTogglePinned,
+}: {
+  icon: string;
+  href: string;
+  title: string;
+  subtitle: string;
+  badges: ReactNode;
+  pinned: boolean;
+  onTogglePinned: () => void;
+}) {
+  return (
+    <div className={styles.resultCard}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className={styles.resultLink}
+      >
+        <div className={styles.resultTopRow}>
+          <span className={styles.resultLeadingIcon}>{icon}</span>
+          <span className={styles.resultTitle}>{title}</span>
+          <div className={styles.resultBadges}>{badges}</div>
+        </div>
+        <p className={styles.resultSubtitle}>{subtitle}</p>
+      </a>
+      <PinButton pinned={pinned} onClick={onTogglePinned} />
+    </div>
+  );
+}
+
 function SearchResults({
   results,
   query,
   searching,
   error,
+  pinnedResultKeys,
+  onTogglePinned,
 }: {
   results: SearchResult[];
   query: string;
   searching: boolean;
   error: string | null;
+  pinnedResultKeys: Set<string>;
+  onTogglePinned: (result: SearchResult) => void;
 }) {
   if (query.trim().length < 3) {
     return null;
@@ -141,88 +228,124 @@ function SearchResults({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={styles.resultsList}>
       {results.map((result) => {
+        const resultKey = getSearchResultKey(result);
+        const handleTogglePinned = () => onTogglePinned(result);
+
         if (result.type === 'raindrop') {
-          const href = result.data.link;
           return (
-            <a
+            <SearchResultRow
               key={`item-${result.data._id}`}
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="group block rounded-2xl border border-base-300/70 bg-base-100/80 px-4 py-3 transition hover:border-base-content/20 hover:bg-base-200/60"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm">💧</span>
-                    <span className="truncate font-medium">
-                      {result.data.title || result.data.link}
-                    </span>
-                    {result.data.collectionTitle ? (
-                      <span
-                        className={`badge badge-sm ${
-                          result.data.isSession ? 'badge-accent' : 'badge-ghost'
-                        }`}
-                      >
-                        {result.data.collectionTitle}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 truncate text-xs text-base-content/60">
-                    {result.data.link}
-                  </p>
-                </div>
-                <span className="text-base-content/40 transition group-hover:text-base-content">
-                  ↗
-                </span>
-              </div>
-            </a>
+              icon="💧"
+              href={result.data.link}
+              title={result.data.title || result.data.link}
+              subtitle={result.data.link}
+              badges={
+                result.data.collectionTitle ? (
+                  <span
+                    className={getBadgeClassName(
+                      result.data.isSession ? 'accent' : 'ghost',
+                    )}
+                  >
+                    {result.data.collectionTitle}
+                  </span>
+                ) : null
+              }
+              pinned={pinnedResultKeys.has(resultKey)}
+              onTogglePinned={handleTogglePinned}
+            />
           );
         }
 
         return (
-          <a
+          <SearchResultRow
             key={`collection-${result.data._id}`}
             href={getCollectionHref(result.data._id)}
-            target="_blank"
-            rel="noreferrer"
-            className="group block rounded-2xl border border-base-300/70 bg-base-100/80 px-4 py-3 transition hover:border-base-content/20 hover:bg-base-200/60"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm">📥</span>
-                  <span className="truncate font-medium">
-                    {result.data.title}
+            icon="📥"
+            title={result.data.title}
+            subtitle="Open collection in Raindrop"
+            badges={
+              <>
+                {typeof result.data.count === 'number' ? (
+                  <span className="badge badge-sm badge-ghost">
+                    {result.data.count}
                   </span>
-                  {typeof result.data.count === 'number' ? (
-                    <span className="badge badge-sm badge-ghost">
-                      {result.data.count}
-                    </span>
-                  ) : null}
-                  {result.data.parentCollectionTitle ? (
-                    <span
-                      className={`badge badge-sm ${
-                        result.data.isSession ? 'badge-accent' : 'badge-ghost'
-                      }`}
-                    >
-                      {result.data.parentCollectionTitle}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 truncate text-xs text-base-content/60">
-                  Open collection in Raindrop
-                </p>
-              </div>
-              <span className="text-base-content/40 transition group-hover:text-base-content">
-                ↗
-              </span>
-            </div>
-          </a>
+                ) : null}
+                {result.data.parentCollectionTitle ? (
+                  <span
+                    className={getBadgeClassName(
+                      result.data.isSession ? 'accent' : 'ghost',
+                    )}
+                  >
+                    {result.data.parentCollectionTitle}
+                  </span>
+                ) : null}
+              </>
+            }
+            pinned={pinnedResultKeys.has(resultKey)}
+            onTogglePinned={handleTogglePinned}
+          />
         );
       })}
+    </div>
+  );
+}
+
+function PinnedResults({
+  results,
+  onRemove,
+}: {
+  results: PinnedRaindropResult[];
+  onRemove: (resultKey: string) => void;
+}) {
+  if (results.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={styles.pinnedSection}>
+      <div className={styles.pinnedTags}>
+        {results.map((result, index) => {
+          const colors = getPinnedResultColor(result.href);
+
+          return (
+            <a
+              key={result.key}
+              href={result.href}
+              target="_blank"
+              rel="noreferrer"
+              className={styles.pinnedTag}
+              style={
+                {
+                  '--pinned-tag-bg': colors.bg,
+                  '--pinned-tag-text': colors.text,
+                } as CSSProperties
+              }
+              title={result.title}
+            >
+              <span className={styles.pinnedTagIndex}>{index + 1}</span>
+              <span className={styles.pinnedTagIcon}>
+                {result.type === 'raindrop' ? '💧' : '📥'}
+              </span>
+              <span className={styles.pinnedTagTitle}>{result.title}</span>
+              <button
+                type="button"
+                className={styles.pinnedTagRemove}
+                aria-label={`Unpin ${result.title}`}
+                title="Unpin"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onRemove(result.key);
+                }}
+              >
+                ✕
+              </button>
+            </a>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -312,12 +435,14 @@ function SessionTree({ details }: { details: SessionDetails }) {
 export default function RaindropPage() {
   const [authState, setAuthState] = useState<AuthState>('checking');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
   const [tokens, setTokens] = useState<StoredProviderTokens | null>(null);
   const [query, setQuery] = useState('');
   const [searchResponse, setSearchResponse] =
     useState<RaindropSearchResponse | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [pinnedResults, setPinnedResults] = useState<PinnedRaindropResult[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -338,7 +463,57 @@ export default function RaindropPage() {
     () => buildSearchResults(searchResponse),
     [searchResponse],
   );
+  const pinnedResultKeys = useMemo(
+    () => new Set(pinnedResults.map((result) => result.key)),
+    [pinnedResults],
+  );
   const showSearchResults = query.trim().length >= 3;
+
+  function updatePinnedResults(
+    nextResultsOrUpdater:
+      | PinnedRaindropResult[]
+      | ((current: PinnedRaindropResult[]) => PinnedRaindropResult[]),
+  ) {
+    setPinnedResults((current) => {
+      const nextResults =
+        typeof nextResultsOrUpdater === 'function'
+          ? nextResultsOrUpdater(current)
+          : nextResultsOrUpdater;
+      savePinnedRaindropResults(nextResults);
+      return nextResults;
+    });
+  }
+
+  function showToast(message: string) {
+    setToast({
+      id: Date.now(),
+      message,
+    });
+  }
+
+  function handleTogglePinnedResult(result: SearchResult) {
+    const pinnedResult = toPinnedRaindropResult(result);
+    const alreadyPinned = pinnedResultKeys.has(pinnedResult.key);
+    updatePinnedResults((current) =>
+      togglePinnedRaindropResult(current, pinnedResult),
+    );
+    showToast(
+      alreadyPinned
+        ? `Unpinned "${pinnedResult.title}".`
+        : `Pinned "${pinnedResult.title}".`,
+    );
+  }
+
+  function handleRemovePinnedResult(resultKey: string) {
+    const result = pinnedResults.find((item) => item.key === resultKey);
+    updatePinnedResults((current) =>
+      current.filter((result) => result.key !== resultKey),
+    );
+    if (result) {
+      showToast(`Unpinned "${result.title}".`);
+    }
+  }
+
   function syncResolvedTokens(nextTokens: StoredProviderTokens) {
     setTokens((current) =>
       areStoredProviderTokensEqual(current, nextTokens) ? current : nextTokens,
@@ -451,6 +626,24 @@ export default function RaindropPage() {
     setSessionDetailLoading({});
     window.location.replace('/');
   }
+
+  useEffect(() => {
+    setPinnedResults(loadPinnedRaindropResults());
+  }, []);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setToast((current) => (current?.id === toast.id ? null : current));
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [toast]);
 
   useEffect(() => {
     const selector =
@@ -570,7 +763,15 @@ export default function RaindropPage() {
         setSearchError(null);
 
         try {
-          const nextTokens = await resolveTokens();
+          const nextTokens = await ensureValidRaindropTokens();
+          if (nextTokens) {
+            syncResolvedTokens(nextTokens);
+          } else {
+            setAuthState('redirecting');
+            window.location.replace(getRaindropAuthHref('/raindrop'));
+            return;
+          }
+
           if (!nextTokens || cancelled) {
             return;
           }
@@ -689,6 +890,11 @@ export default function RaindropPage() {
 
   return (
     <main className={`${nunito.className} ${styles.page}`}>
+      {toast ? (
+        <div className={styles.toastViewport} role="status" aria-live="polite">
+          <div className={styles.toastMessage}>{toast.message}</div>
+        </div>
+      ) : null}
       <div className={styles.shell}>
         <div className={styles.content}>
           <header className={styles.header}>
@@ -751,6 +957,17 @@ export default function RaindropPage() {
                       className={styles.softInputField}
                     />
                   </span>
+                  {query ? (
+                    <button
+                      type="button"
+                      className={styles.clearSearchButton}
+                      aria-label="Clear search"
+                      title="Clear search"
+                      onClick={() => setQuery('')}
+                    >
+                      ✕
+                    </button>
+                  ) : null}
                 </label>
 
                 {showSearchResults ? (
@@ -760,9 +977,16 @@ export default function RaindropPage() {
                       query={query}
                       searching={searching}
                       error={searchError}
+                      pinnedResultKeys={pinnedResultKeys}
+                      onTogglePinned={handleTogglePinnedResult}
                     />
                   </div>
-                ) : null}
+                ) : (
+                  <PinnedResults
+                    results={pinnedResults}
+                    onRemove={handleRemovePinnedResult}
+                  />
+                )}
               </div>
             </article>
 
@@ -821,6 +1045,7 @@ export default function RaindropPage() {
                           </span>
                           <div className={styles.sessionAvatar}>
                             {coverUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={coverUrl}
                                 alt=""

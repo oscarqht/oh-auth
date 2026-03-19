@@ -84,6 +84,9 @@ export type SessionDetails = {
   }>;
 };
 
+type SearchItemResult = RaindropSearchResponse['items'][number];
+type SearchCollectionResult = RaindropSearchResponse['collections'][number];
+
 export function readBearerAccessToken(request: Request) {
   const authorization = request.headers.get('authorization')?.trim();
   if (!authorization) {
@@ -129,6 +132,63 @@ function getItemMetadata(item: Pick<RaindropItem, 'excerpt' | 'note'>) {
   }
 
   return {} as Record<string, unknown>;
+}
+
+export function dedupeRaindropSearchItems(items: SearchItemResult[]) {
+  const seenUrls = new Set<string>();
+  const seenKeys = new Set<string>();
+  const uniqueItems: SearchItemResult[] = [];
+
+  for (const item of items) {
+    const url = (item.link ?? '').trim().toLowerCase();
+    const title = (item.title ?? '').trim().toLowerCase();
+
+    if (!url) {
+      uniqueItems.push(item);
+      continue;
+    }
+
+    if (seenUrls.has(url)) {
+      continue;
+    }
+
+    const dedupeKey = `${title}|${url}`;
+    if (seenKeys.has(dedupeKey)) {
+      continue;
+    }
+
+    seenUrls.add(url);
+    seenKeys.add(dedupeKey);
+    uniqueItems.push(item);
+  }
+
+  return uniqueItems;
+}
+
+export function dedupeRaindropSearchCollections(
+  collections: SearchCollectionResult[],
+) {
+  const seenCollectionIds = new Set<number>();
+  const uniqueCollections: SearchCollectionResult[] = [];
+
+  for (const collection of collections) {
+    if (
+      typeof collection._id !== 'number' ||
+      !Number.isFinite(collection._id)
+    ) {
+      uniqueCollections.push(collection);
+      continue;
+    }
+
+    if (seenCollectionIds.has(collection._id)) {
+      continue;
+    }
+
+    seenCollectionIds.add(collection._id);
+    uniqueCollections.push(collection);
+  }
+
+  return uniqueCollections;
 }
 
 async function raindropRequest<T>(
@@ -297,7 +357,8 @@ export async function searchRaindropWorkspace(
 
   collectionIdTitleMap.set(-1, 'Unsorted');
 
-  const filteredItems = items
+  const filteredItems = dedupeRaindropSearchItems(
+    items
     .filter((item) => {
       if (
         typeof item.collectionId === 'number' &&
@@ -345,7 +406,8 @@ export async function searchRaindropWorkspace(
         isSession:
           typeof sessionsCollectionId === 'number' && parentId === sessionsCollectionId,
       };
-    });
+    }),
+  );
 
   filteredItems.sort((a, b) => {
     const aLink = (a.link ?? '').toLowerCase();
@@ -362,7 +424,8 @@ export async function searchRaindropWorkspace(
     return 0;
   });
 
-  const filteredCollections = allCollections
+  const filteredCollections = dedupeRaindropSearchCollections(
+    allCollections
     .filter((collection) => {
       const title = (collection.title ?? '').toLowerCase();
       if (title === EXCLUDED_COLLECTION_NAME) {
@@ -381,7 +444,8 @@ export async function searchRaindropWorkspace(
         isSession:
           typeof sessionsCollectionId === 'number' && parentId === sessionsCollectionId,
       };
-    });
+    }),
+  );
 
   if ('unsorted'.includes(query.toLowerCase())) {
     filteredCollections.unshift({
