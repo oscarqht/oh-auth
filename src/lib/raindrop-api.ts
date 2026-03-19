@@ -22,6 +22,7 @@ type RaindropCollection = {
 
 type RaindropItem = {
   _id: number;
+  type?: string;
   title?: string;
   link: string;
   excerpt?: string;
@@ -30,6 +31,15 @@ type RaindropItem = {
   collectionId?: number;
   lastUpdate?: string;
   dateAdded?: string;
+  file?: {
+    name?: string;
+    link?: string;
+  };
+  collection?: {
+    $id?: number;
+    _id?: number;
+    id?: number | string;
+  };
 };
 
 type SessionTab = {
@@ -82,6 +92,12 @@ export type SessionDetails = {
     id: number;
     tree: Array<SessionTab | SessionGroup>;
   }>;
+};
+
+export type RaindropBackupFileResponse = {
+  found: boolean;
+  payload: unknown;
+  lastModified: string | null;
 };
 
 type SearchItemResult = RaindropSearchResponse['items'][number];
@@ -246,6 +262,101 @@ async function fetchAllCollections(accessToken: string) {
       ? childCollections.items
       : [],
   };
+}
+
+function getNumericId(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function getCollectionId(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return getNumericId(value);
+  }
+
+  const candidate = value as {
+    _id?: unknown;
+    id?: unknown;
+    $id?: unknown;
+  };
+
+  return (
+    getNumericId(candidate._id) ??
+    getNumericId(candidate.id) ??
+    getNumericId(candidate.$id)
+  );
+}
+
+async function findCollectionByTitle(accessToken: string, title: string) {
+  const { rootCollections, childCollections } = await fetchAllCollections(accessToken);
+  return [...rootCollections, ...childCollections].find(
+    (collection) => collection.title === title,
+  );
+}
+
+async function ensureCollectionByTitle(accessToken: string, title: string) {
+  const existing = await findCollectionByTitle(accessToken, title);
+  const existingId = getCollectionId(existing);
+  if (existingId !== null) {
+    return existingId;
+  }
+
+  const response = await raindropRequest<{ item?: RaindropCollection }>(
+    '/collection',
+    accessToken,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    },
+  );
+
+  const createdId = getCollectionId(response.item);
+  if (createdId === null) {
+    throw new Error(`Unable to create Raindrop collection "${title}"`);
+  }
+
+  return createdId;
+}
+
+async function deleteCollectionItems(accessToken: string, collectionId: number) {
+  const existingItems = await fetchAllItemsInCollection(accessToken, collectionId);
+  const ids = existingItems
+    .map((item) => getNumericId(item._id))
+    .filter((id): id is number => id !== null);
+
+  if (ids.length === 0) {
+    return;
+  }
+
+  const response = await raindropRequest<{ modified?: number }>(
+    `/raindrops/${collectionId}`,
+    accessToken,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    },
+  );
+
+  if (response.modified === 0) {
+    await raindropRequest(`/raindrops/${collectionId}`, accessToken, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ids,
+        collection: { $id: -99 },
+      }),
+    });
+  }
 }
 
 async function fetchAllItemsInCollection(
@@ -573,4 +684,128 @@ export async function fetchSessionDetails(
   });
 
   return { windows };
+}
+
+export async function fetchRaindropBackupFile(
+  accessToken: string,
+  {
+    collectionTitle,
+    fileName,
+  }: {
+    collectionTitle: string;
+    fileName: string;
+  },
+): Promise<RaindropBackupFileResponse> {
+  const collection = await findCollectionByTitle(accessToken, collectionTitle);
+  const collectionId = getCollectionId(collection);
+  if (collectionId === null) {
+    return {
+      found: false,
+      payload: null,
+      lastModified: null,
+    };
+  }
+
+  const items = await fetchAllItemsInCollection(accessToken, collectionId);
+  const fileItem = items.find(
+    (item) =>
+      item.title === fileName ||
+      item.file?.name === fileName ||
+      (item.type === 'link' &&
+        typeof item.link === 'string' &&
+        item.link.endsWith(fileName)),
+  );
+
+  if (!fileItem) {
+    return {
+      found: false,
+      payload: null,
+      lastModified: null,
+    };
+  }
+
+  const downloadUrl = fileItem.file?.link || fileItem.link;
+  if (!downloadUrl) {
+    return {
+      found: false,
+      payload: null,
+      lastModified: fileItem.lastUpdate ?? null,
+    };
+  }
+
+  const response = await fetch(downloadUrl, {
+    cache: 'no-store',
+    headers: {
+      'cache-control': 'no-cache, no-store, must-revalidate',
+      pragma: 'no-cache',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to download ${fileName} from Raindrop`);
+  }
+
+  return {
+    found: true,
+    payload: (await response.json()) as unknown,
+    lastModified: fileItem.lastUpdate ?? null,
+  };
+}
+
+export async function saveRaindropBackupFile(
+  accessToken: string,
+  {
+    collectionTitle,
+    fileName,
+    uploadFileName = fileName,
+    payload,
+  }: {
+    collectionTitle: string;
+    fileName: string;
+    uploadFileName?: string;
+    payload: unknown;
+  },
+) {
+  const collectionId = await ensureCollectionByTitle(accessToken, collectionTitle);
+  await deleteCollectionItems(accessToken, collectionId);
+
+  const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain' });
+  const formData = new FormData();
+  formData.append('collectionId', String(collectionId));
+  formData.append('file', blob, uploadFileName);
+
+  const response = await raindropRequest<{ item?: RaindropItem }>(
+    '/raindrop/file',
+    accessToken,
+    {
+      method: 'PUT',
+      body: formData,
+    },
+  );
+
+  const item = response.item;
+  if (!item) {
+    return;
+  }
+
+  const itemCollectionId = getCollectionId(item.collection);
+  if (item.title === fileName && itemCollectionId === collectionId) {
+    return;
+  }
+
+  const updateBody: {
+    title: string;
+    collection?: { $id: number };
+  } = {
+    title: fileName,
+  };
+
+  if (itemCollectionId !== collectionId) {
+    updateBody.collection = { $id: collectionId };
+  }
+
+  await raindropRequest(`/raindrop/${item._id}`, accessToken, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateBody),
+  });
 }

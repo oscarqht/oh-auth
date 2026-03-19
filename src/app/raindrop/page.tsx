@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -39,6 +40,11 @@ type ToastState = {
   id: number;
   message: string;
 } | null;
+type PinnedResultsResponse = {
+  found: boolean;
+  results: PinnedRaindropResult[];
+  lastModified?: string | null;
+};
 const RAINDROP_ICON_HREF = '/img/provider-raindrop-icon.png';
 
 const nunito = Nunito({
@@ -458,6 +464,10 @@ export default function RaindropPage() {
   const [sessionDetailLoading, setSessionDetailLoading] = useState<
     Record<number, boolean | undefined>
   >({});
+  const pinnedResultsRef = useRef<PinnedRaindropResult[]>([]);
+  const pinnedResultsSyncInitializedRef = useRef(false);
+  const pinnedResultsRemoteLoadedRef = useRef(false);
+  const lastSyncedPinnedResultsRef = useRef('[]');
 
   const searchResults = useMemo(
     () => buildSearchResults(searchResponse),
@@ -468,6 +478,10 @@ export default function RaindropPage() {
     [pinnedResults],
   );
   const showSearchResults = query.trim().length >= 3;
+
+  useEffect(() => {
+    pinnedResultsRef.current = pinnedResults;
+  }, [pinnedResults]);
 
   function updatePinnedResults(
     nextResultsOrUpdater:
@@ -628,7 +642,9 @@ export default function RaindropPage() {
   }
 
   useEffect(() => {
-    setPinnedResults(loadPinnedRaindropResults());
+    const cachedResults = loadPinnedRaindropResults();
+    lastSyncedPinnedResultsRef.current = JSON.stringify(cachedResults);
+    setPinnedResults(cachedResults);
   }, []);
 
   useEffect(() => {
@@ -739,6 +755,58 @@ export default function RaindropPage() {
   }, []);
 
   useEffect(() => {
+    if (authState !== 'ready' || !tokens || pinnedResultsSyncInitializedRef.current) {
+      return;
+    }
+
+    pinnedResultsSyncInitializedRef.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetchRaindropJson<PinnedResultsResponse>(
+          '/api/raindrop/pinned-results',
+          tokens,
+        );
+        if (cancelled) {
+          return;
+        }
+
+        if (response.found) {
+          const remoteResults = response.results;
+          lastSyncedPinnedResultsRef.current = JSON.stringify(remoteResults);
+          savePinnedRaindropResults(remoteResults);
+          setPinnedResults(remoteResults);
+          return;
+        }
+
+        lastSyncedPinnedResultsRef.current = JSON.stringify(
+          pinnedResultsRef.current,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          lastSyncedPinnedResultsRef.current = JSON.stringify(
+            pinnedResultsRef.current,
+          );
+          console.error(
+            '[raindrop-page] Failed to refresh pinned results from Raindrop',
+            error,
+          );
+          showToast('Could not refresh pinned results from Raindrop.');
+        }
+      } finally {
+        if (!cancelled) {
+          pinnedResultsRemoteLoadedRef.current = true;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authState, tokens]);
+
+  useEffect(() => {
     if (authState !== 'ready' || !tokens) {
       return;
     }
@@ -747,6 +815,68 @@ export default function RaindropPage() {
     // Trigger session loading whenever we reach a ready authenticated state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, tokens]);
+
+  useEffect(() => {
+    if (
+      authState !== 'ready' ||
+      !tokens ||
+      !pinnedResultsRemoteLoadedRef.current
+    ) {
+      return;
+    }
+
+    const serializedResults = JSON.stringify(pinnedResults);
+    if (serializedResults === lastSyncedPinnedResultsRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetchRaindropJson<{
+            ok: boolean;
+            results: PinnedRaindropResult[];
+          }>('/api/raindrop/pinned-results', tokens, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              results: pinnedResults,
+            }),
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          const normalizedResults = response.results;
+          lastSyncedPinnedResultsRef.current = JSON.stringify(normalizedResults);
+          savePinnedRaindropResults(normalizedResults);
+
+          if (
+            JSON.stringify(normalizedResults) !== serializedResults
+          ) {
+            setPinnedResults(normalizedResults);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            console.error(
+              '[raindrop-page] Failed to sync pinned results to Raindrop',
+              error,
+            );
+            showToast('Pinned results were saved locally, but Raindrop sync failed.');
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [authState, pinnedResults, tokens]);
 
   useEffect(() => {
     if (query.trim().length < 3) {

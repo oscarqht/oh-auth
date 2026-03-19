@@ -112,11 +112,15 @@ export async function ensureValidRaindropTokens() {
 export async function fetchRaindropJson<T>(
   path: string,
   tokens: StoredProviderTokens,
+  init?: RequestInit,
 ) {
+  const headers = new Headers(init?.headers);
+  headers.set('authorization', `Bearer ${tokens.accessToken}`);
+  headers.set('accept', 'application/json');
+
   const response = await fetch(path, {
-    headers: {
-      authorization: `Bearer ${tokens.accessToken}`,
-    },
+    ...init,
+    headers,
   });
 
   const data = (await response.json()) as T & JsonError;

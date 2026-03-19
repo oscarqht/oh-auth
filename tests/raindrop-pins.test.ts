@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  createPinnedRaindropResultsBackupPayload,
   getPinnedResultColor,
   isPinnedRaindropResult,
+  readPinnedRaindropResultsPayload,
   toPinnedRaindropResult,
   togglePinnedRaindropResult,
 } from '../src/lib/raindrop-pins';
@@ -124,6 +126,104 @@ describe('isPinnedRaindropResult', () => {
       }),
       false,
     );
+  });
+});
+
+describe('readPinnedRaindropResultsPayload', () => {
+  it('reads legacy array payloads', () => {
+    const results = readPinnedRaindropResultsPayload([
+      {
+        key: 'raindrop:1',
+        type: 'raindrop',
+        id: 1,
+        href: 'https://example.com/1',
+        title: 'One',
+        subtitle: 'https://example.com/1',
+        badgeTone: 'ghost',
+      },
+      {
+        bad: true,
+      },
+    ]);
+
+    assert.deepEqual(results, [
+      {
+        key: 'raindrop:1',
+        type: 'raindrop',
+        id: 1,
+        href: 'https://example.com/1',
+        title: 'One',
+        subtitle: 'https://example.com/1',
+        badgeTone: 'ghost',
+      },
+    ]);
+  });
+
+  it('reads backup payload objects from Raindrop', () => {
+    const results = readPinnedRaindropResultsPayload({
+      version: 1,
+      savedAt: 123,
+      pinnedSearchResults: [
+        {
+          key: 'raindrop-collection:7',
+          type: 'raindrop-collection',
+          id: 7,
+          href: 'https://app.raindrop.io/my/7',
+          title: 'Office',
+          subtitle: 'Open collection in Raindrop',
+          badgeTone: 'accent',
+          count: 12,
+        },
+      ],
+    });
+
+    assert.deepEqual(results, [
+      {
+        key: 'raindrop-collection:7',
+        type: 'raindrop-collection',
+        id: 7,
+        href: 'https://app.raindrop.io/my/7',
+        title: 'Office',
+        subtitle: 'Open collection in Raindrop',
+        badgeTone: 'accent',
+        count: 12,
+      },
+    ]);
+  });
+});
+
+describe('createPinnedRaindropResultsBackupPayload', () => {
+  it('wraps pinned results in the Raindrop backup format', () => {
+    const payload = createPinnedRaindropResultsBackupPayload(
+      [
+        {
+          key: 'raindrop:1',
+          type: 'raindrop',
+          id: 1,
+          href: 'https://example.com/1',
+          title: 'One',
+          subtitle: 'https://example.com/1',
+          badgeTone: 'ghost',
+        },
+      ],
+      123,
+    );
+
+    assert.deepEqual(payload, {
+      version: 1,
+      savedAt: 123,
+      pinnedSearchResults: [
+        {
+          key: 'raindrop:1',
+          type: 'raindrop',
+          id: 1,
+          href: 'https://example.com/1',
+          title: 'One',
+          subtitle: 'https://example.com/1',
+          badgeTone: 'ghost',
+        },
+      ],
+    });
   });
 });
 

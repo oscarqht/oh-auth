@@ -26,6 +26,12 @@ export type PinnedRaindropResult = {
   count?: number;
 };
 
+export type PinnedRaindropResultsBackupPayload = {
+  version: 1;
+  savedAt: number;
+  pinnedSearchResults: PinnedRaindropResult[];
+};
+
 type SearchResult =
   | {
       type: 'raindrop';
@@ -83,12 +89,7 @@ export function loadPinnedRaindropResults() {
   }
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter(isPinnedRaindropResult);
+    return readPinnedRaindropResultsPayload(JSON.parse(raw) as unknown);
   } catch {
     return [];
   }
@@ -118,6 +119,37 @@ export function togglePinnedRaindropResult(
   }
 
   return [nextResult, ...currentResults];
+}
+
+export function readPinnedRaindropResultsPayload(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.filter(isPinnedRaindropResult);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  const candidate = value as {
+    pinnedSearchResults?: unknown;
+  };
+
+  if (!Array.isArray(candidate.pinnedSearchResults)) {
+    return [];
+  }
+
+  return candidate.pinnedSearchResults.filter(isPinnedRaindropResult);
+}
+
+export function createPinnedRaindropResultsBackupPayload(
+  results: PinnedRaindropResult[],
+  savedAt = Date.now(),
+): PinnedRaindropResultsBackupPayload {
+  return {
+    version: 1,
+    savedAt,
+    pinnedSearchResults: results.filter(isPinnedRaindropResult),
+  };
 }
 
 export function isPinnedRaindropResult(
