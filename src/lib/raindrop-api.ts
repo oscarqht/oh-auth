@@ -733,22 +733,34 @@ export async function fetchRaindropBackupFile(
     };
   }
 
-  const response = await fetch(downloadUrl, {
-    cache: 'no-store',
-    headers: {
-      'cache-control': 'no-cache, no-store, must-revalidate',
-      pragma: 'no-cache',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to download ${fileName} from Raindrop`);
-  }
+  try {
+    const response = await fetch(downloadUrl, {
+      cache: 'no-store',
+      headers: {
+        'cache-control': 'no-cache, no-store, must-revalidate',
+        pragma: 'no-cache',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to download ${fileName} from Raindrop`);
+    }
 
-  return {
-    found: true,
-    payload: (await response.json()) as unknown,
-    lastModified: fileItem.lastUpdate ?? null,
-  };
+    return {
+      found: true,
+      payload: (await response.json()) as unknown,
+      lastModified: fileItem.lastUpdate ?? null,
+    };
+  } catch (error) {
+    console.warn(
+      `[raindrop-api] Failed to download or parse backup file "${fileName}"`,
+      error,
+    );
+    return {
+      found: false,
+      payload: null,
+      lastModified: fileItem.lastUpdate ?? null,
+    };
+  }
 }
 
 export async function saveRaindropBackupFile(
