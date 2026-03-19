@@ -35,6 +35,15 @@ export const metadata: Metadata = {
   title: 'Oh, auth!',
   description:
     'Minimal Next.js app to start OAuth2 flows for Google and Raindrop, redirect to provider authorization pages, and log received tokens on callback.',
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+        type: 'image/x-icon',
+      },
+    ],
+    shortcut: ['/favicon.ico'],
+  },
 };
 
 export default function RootLayout({
