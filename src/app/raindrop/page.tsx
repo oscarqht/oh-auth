@@ -658,7 +658,19 @@ export default function RaindropPage() {
               </h1>
               <div className="space-y-3">
                 <label className={styles.softInput}>
-                  <span className="text-base-content/45">⌕</span>
+                  <span className={styles.searchIcon} aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="6.5" />
+                      <path d="M16 16L21 21" />
+                    </svg>
+                  </span>
                   <span className={styles.softInputFieldWrap}>
                     <input
                       type="text"
@@ -749,9 +761,7 @@ export default function RaindropPage() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className={`${styles.sessionTitle} truncate`}>
-                              {session.title}
-                            </div>
+                            <div className={styles.sessionTitle}>{session.title}</div>
                             <div className={styles.sessionMeta}>
                               Last active: {formatTimestamp(session.lastAction)}
                             </div>
