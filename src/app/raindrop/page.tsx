@@ -21,6 +21,7 @@ import {
 import styles from './page.module.css';
 
 type AuthState = 'checking' | 'redirecting' | 'ready' | 'error';
+const RAINDROP_ICON_HREF = '/img/provider-raindrop-icon.png';
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -66,6 +67,14 @@ function getCoverUrl(cover?: string[] | string) {
   }
 
   return cover;
+}
+
+function createHeadIconLink(rel: string, href: string) {
+  const link = document.createElement('link');
+  link.rel = rel;
+  link.href = href;
+  link.type = 'image/png';
+  return link;
 }
 
 function buildSearchResults(response: RaindropSearchResponse | null) {
@@ -444,6 +453,66 @@ export default function RaindropPage() {
   }
 
   useEffect(() => {
+    const selector =
+      'link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]';
+    const expectedHref = new URL(
+      RAINDROP_ICON_HREF,
+      window.location.origin,
+    ).href;
+    const desiredRels = ['icon', 'shortcut icon', 'apple-touch-icon'] as const;
+    const previousIcons = Array.from(
+      document.head.querySelectorAll<HTMLLinkElement>(selector),
+    ).map((node) => node.cloneNode(true) as HTMLLinkElement);
+    let syncing = false;
+
+    const syncIcons = () => {
+      if (syncing) {
+        return;
+      }
+
+      syncing = true;
+      try {
+        document.head
+          .querySelectorAll<HTMLLinkElement>(selector)
+          .forEach((node) => {
+            if (node.href !== expectedHref || !desiredRels.includes(node.rel as (typeof desiredRels)[number])) {
+              node.remove();
+            }
+          });
+
+        desiredRels.forEach((rel) => {
+          const existing = document.head.querySelector<HTMLLinkElement>(
+            `link[rel="${rel}"][href="${expectedHref}"]`,
+          );
+          if (!existing) {
+            document.head.appendChild(createHeadIconLink(rel, expectedHref));
+          }
+        });
+      } finally {
+        syncing = false;
+      }
+    };
+
+    const observer = new MutationObserver(() => {
+      syncIcons();
+    });
+
+    syncIcons();
+    observer.observe(document.head, {
+      childList: true,
+      subtree: false,
+      attributes: true,
+      attributeFilter: ['href', 'rel'],
+    });
+
+    return () => {
+      observer.disconnect();
+      document.head.querySelectorAll(selector).forEach((node) => node.remove());
+      previousIcons.forEach((node) => document.head.appendChild(node));
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
@@ -674,6 +743,7 @@ export default function RaindropPage() {
                   <span className={styles.softInputFieldWrap}>
                     <input
                       type="text"
+                      autoFocus
                       inputMode="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
