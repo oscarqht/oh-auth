@@ -53,8 +53,8 @@ export default function Home() {
               <div className="card-body">
                 <h2 className="card-title">{provider.name}</h2>
                 <p>{provider.description}</p>
-                <div className="card-actions items-center justify-between">
-                  <div className="flex gap-2">
+                <div className="card-actions flex-col items-start gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Link
                       className="btn btn-primary"
                       href={`/auth/${provider.id}`}
