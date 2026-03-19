@@ -674,6 +674,7 @@ export default function RaindropPage() {
                   <span className={styles.softInputFieldWrap}>
                     <input
                       type="text"
+                      autoFocus
                       inputMode="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
