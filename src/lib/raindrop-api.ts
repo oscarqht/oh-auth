@@ -737,6 +737,8 @@ export async function fetchRaindropBackupFile(
     const response = await fetch(downloadUrl, {
       cache: 'no-store',
       headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: 'application/json',
         'cache-control': 'no-cache, no-store, must-revalidate',
         pragma: 'no-cache',
       },

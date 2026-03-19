@@ -130,7 +130,7 @@ describe('isPinnedRaindropResult', () => {
 });
 
 describe('readPinnedRaindropResultsPayload', () => {
-  it('reads legacy array payloads', () => {
+  it('reads current rich array payloads', () => {
     const results = readPinnedRaindropResultsPayload([
       {
         key: 'raindrop:1',
@@ -159,20 +159,53 @@ describe('readPinnedRaindropResultsPayload', () => {
     ]);
   });
 
+  it('reads legacy flat array payloads from the extension backup', () => {
+    const results = readPinnedRaindropResultsPayload([
+      {
+        type: 'raindrop',
+        url: 'https://app.raindrop.io/my/64914957',
+        title: 'drafts',
+      },
+      {
+        type: 'raindrop',
+        url: 'http://localhost:3200/',
+        title: 'palx / app',
+      },
+    ]);
+
+    assert.equal(results.length, 2);
+    assert.deepEqual(results[0], {
+      key: 'raindrop-collection:64914957',
+      type: 'raindrop-collection',
+      id: 64914957,
+      href: 'https://app.raindrop.io/my/64914957',
+      title: 'drafts',
+      subtitle: 'Open collection in Raindrop',
+      badgeTone: 'ghost',
+    });
+    assert.equal(results[1]?.type, 'raindrop');
+    assert.equal(results[1]?.href, 'http://localhost:3200/');
+    assert.equal(results[1]?.title, 'palx / app');
+    assert.equal(results[1]?.subtitle, 'http://localhost:3200/');
+    assert.equal(results[1]?.badgeTone, 'ghost');
+    assert.match(results[1]?.key ?? '', /^raindrop:\d+$/);
+    assert.equal(typeof results[1]?.id, 'number');
+  });
+
   it('reads backup payload objects from Raindrop', () => {
     const results = readPinnedRaindropResultsPayload({
       version: 1,
       savedAt: 123,
       pinnedSearchResults: [
         {
-          key: 'raindrop-collection:7',
-          type: 'raindrop-collection',
-          id: 7,
-          href: 'https://app.raindrop.io/my/7',
+          type: 'raindrop',
+          url: 'https://app.raindrop.io/my/7',
           title: 'Office',
-          subtitle: 'Open collection in Raindrop',
-          badgeTone: 'accent',
-          count: 12,
+        },
+        {
+          type: 'raindrop-collection',
+          url: 'https://app.raindrop.io/my/-1',
+          title: 'Unsorted',
         },
       ],
     });
@@ -185,8 +218,16 @@ describe('readPinnedRaindropResultsPayload', () => {
         href: 'https://app.raindrop.io/my/7',
         title: 'Office',
         subtitle: 'Open collection in Raindrop',
-        badgeTone: 'accent',
-        count: 12,
+        badgeTone: 'ghost',
+      },
+      {
+        key: 'raindrop-collection:-1',
+        type: 'raindrop-collection',
+        id: -1,
+        href: 'https://app.raindrop.io/my/-1',
+        title: 'Unsorted',
+        subtitle: 'Open collection in Raindrop',
+        badgeTone: 'ghost',
       },
     ]);
   });
@@ -214,13 +255,9 @@ describe('createPinnedRaindropResultsBackupPayload', () => {
       savedAt: 123,
       pinnedSearchResults: [
         {
-          key: 'raindrop:1',
           type: 'raindrop',
-          id: 1,
-          href: 'https://example.com/1',
           title: 'One',
-          subtitle: 'https://example.com/1',
-          badgeTone: 'ghost',
+          url: 'https://example.com/1',
         },
       ],
     });

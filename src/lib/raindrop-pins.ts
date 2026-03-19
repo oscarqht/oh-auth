@@ -26,10 +26,16 @@ export type PinnedRaindropResult = {
   count?: number;
 };
 
+type LegacyPinnedRaindropResult = {
+  title: string;
+  url: string;
+  type: string;
+};
+
 export type PinnedRaindropResultsBackupPayload = {
   version: 1;
   savedAt: number;
-  pinnedSearchResults: PinnedRaindropResult[];
+  pinnedSearchResults: LegacyPinnedRaindropResult[];
 };
 
 type SearchResult =
@@ -44,6 +50,70 @@ type SearchResult =
 
 function getPinnedResultKey(type: PinnedRaindropResult['type'], id: number) {
   return `${type}:${id}`;
+}
+
+function getFallbackPinnedResultId(seed: string) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = seed.charCodeAt(index) + ((hash << 5) - hash);
+  }
+
+  return Math.abs(hash) || 1;
+}
+
+function getCollectionIdFromHref(href: string) {
+  try {
+    const parsed = new URL(href);
+    const match = parsed.pathname.match(/^\/my\/(-?\d+)\/?$/);
+    if (!match) {
+      return null;
+    }
+
+    const id = Number(match[1]);
+    return Number.isFinite(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLegacyPinnedRaindropResult(
+  value: unknown,
+): value is LegacyPinnedRaindropResult {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.title === 'string' &&
+    typeof candidate.url === 'string' &&
+    typeof candidate.type === 'string'
+  );
+}
+
+function normalizeLegacyPinnedRaindropResult(
+  value: LegacyPinnedRaindropResult,
+): PinnedRaindropResult {
+  const inferredType =
+    value.type === 'raindrop-collection' || getCollectionIdFromHref(value.url) !== null
+      ? 'raindrop-collection'
+      : 'raindrop';
+  const id =
+    getCollectionIdFromHref(value.url) ??
+    getFallbackPinnedResultId(`${value.type}:${value.url}`);
+
+  return {
+    key: getPinnedResultKey(inferredType, id),
+    type: inferredType,
+    id,
+    href: value.url,
+    title: value.title,
+    subtitle:
+      inferredType === 'raindrop-collection'
+        ? 'Open collection in Raindrop'
+        : value.url,
+    badgeTone: 'ghost',
+  };
 }
 
 export function toPinnedRaindropResult(
@@ -123,7 +193,15 @@ export function togglePinnedRaindropResult(
 
 export function readPinnedRaindropResultsPayload(value: unknown) {
   if (Array.isArray(value)) {
-    return value.filter(isPinnedRaindropResult);
+    return value.flatMap((item) => {
+      if (isPinnedRaindropResult(item)) {
+        return [item];
+      }
+      if (isLegacyPinnedRaindropResult(item)) {
+        return [normalizeLegacyPinnedRaindropResult(item)];
+      }
+      return [];
+    });
   }
 
   if (!value || typeof value !== 'object') {
@@ -138,7 +216,7 @@ export function readPinnedRaindropResultsPayload(value: unknown) {
     return [];
   }
 
-  return candidate.pinnedSearchResults.filter(isPinnedRaindropResult);
+  return readPinnedRaindropResultsPayload(candidate.pinnedSearchResults);
 }
 
 export function createPinnedRaindropResultsBackupPayload(
@@ -148,7 +226,11 @@ export function createPinnedRaindropResultsBackupPayload(
   return {
     version: 1,
     savedAt,
-    pinnedSearchResults: results.filter(isPinnedRaindropResult),
+    pinnedSearchResults: results.filter(isPinnedRaindropResult).map((result) => ({
+      title: result.title,
+      url: result.href,
+      type: result.type,
+    })),
   };
 }
 

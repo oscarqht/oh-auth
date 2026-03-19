@@ -56,7 +56,9 @@ describe('dedupeRaindropSearchItems', () => {
 
 describe('fetchRaindropBackupFile', () => {
   it('treats malformed downloaded backup files as missing instead of throwing', async () => {
-    global.fetch = (async (input: RequestInfo | URL) => {
+    let downloadAuthorizationHeader: string | null = null;
+
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
 
       if (url === 'https://api.raindrop.io/rest/v1/collections') {
@@ -87,6 +89,9 @@ describe('fetchRaindropBackupFile', () => {
       }
 
       if (url === 'https://files.example/pinned_search_results.json') {
+        downloadAuthorizationHeader = new Headers(init?.headers).get(
+          'authorization',
+        );
         return new Response('<!doctype html>', {
           status: 200,
           headers: {
@@ -108,5 +113,6 @@ describe('fetchRaindropBackupFile', () => {
       payload: null,
       lastModified: '2026-03-19T00:00:00.000Z',
     });
+    assert.equal(downloadAuthorizationHeader, 'Bearer token');
   });
 });
