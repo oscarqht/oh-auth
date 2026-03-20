@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx tests/secret-encrypt-api.test.ts && tsx tests/oauth-refresh.test.ts && tsx tests/raindrop-web-auth.test.ts && tsx tests/raindrop-pins.test.ts && tsx tests/raindrop-search.test.ts"
+    "test": "tsx tests/secret-encrypt-api.test.ts && tsx tests/oauth-refresh.test.ts && tsx tests/raindrop-web-auth.test.ts && tsx tests/raindrop-pins.test.ts && tsx tests/raindrop-search.test.ts && tsx tests/raindrop-albums.test.ts && tsx tests/raindrop-albums-api.test.ts"
   },
   "dependencies": {
     "next": "16.0.10",
