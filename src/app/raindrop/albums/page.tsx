@@ -21,7 +21,6 @@ import {
   buildAlbumSearchParams,
   clampAlbumViewerTransform,
   getAdjacentAlbumImageId,
-  getAlbumSwipeAction,
   parseAlbumRouteState,
 } from '@/lib/raindrop-albums';
 import {
@@ -251,7 +250,7 @@ function PhotoViewer({
     new Map<number, { x: number; y: number; pointerType: string }>(),
   );
   const interactionRef = useRef<{
-    mode: 'idle' | 'swipe' | 'pan' | 'pinch';
+    mode: 'idle' | 'pan' | 'pinch';
     startX: number;
     startY: number;
     baseOffsetX: number;
@@ -401,13 +400,8 @@ function PhotoViewer({
       return;
     }
 
-    if (event.pointerType === 'mouse') {
-      interactionRef.current.mode = 'idle';
-      return;
-    }
-
     interactionRef.current = {
-      mode: 'swipe',
+      mode: 'idle',
       startX: event.clientX,
       startY: event.clientY,
       baseOffsetX: 0,
@@ -469,18 +463,10 @@ function PhotoViewer({
       return;
     }
 
-    if (interaction.mode === 'swipe') {
-      commitTransform({
-        scale: 1,
-        offsetX: event.clientX - interaction.startX,
-        offsetY: event.clientY - interaction.startY,
-      }, {
-        allowOffsetAtBaseScale: true,
-      });
-    }
+
   }
 
-  function releasePointer(pointerId: number) {
+  function releasePointer(pointerId: number, event?: ReactPointerEvent<HTMLDivElement>) {
     pointersRef.current.delete(pointerId);
 
     if (pointersRef.current.size >= 2) {
@@ -495,50 +481,50 @@ function PhotoViewer({
     }
 
     const interaction = interactionRef.current;
+    const modeBeforeRelease = interaction.mode;
     interactionRef.current.mode = 'idle';
 
-    if (interaction.mode !== 'swipe') {
-      if (transformRef.current.scale <= 1.02) {
-        commitTransform({
-          scale: 1,
-          offsetX: 0,
-          offsetY: 0,
-        });
+    if (transformRef.current.scale <= 1.02) {
+      commitTransform({
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+      });
+    }
+
+    if (modeBeforeRelease === 'idle' && transformRef.current.scale <= 1.02 && event) {
+      const deltaX = Math.abs(event.clientX - interaction.startX);
+      const deltaY = Math.abs(event.clientY - interaction.startY);
+
+      // Consider it a tap/click if movement was very small
+      if (deltaX < 10 && deltaY < 10) {
+        // Also check if they clicked directly on the navigation arrows or close button
+        // by verifying the target, or simply by the fact that if they did, the click handler on those buttons
+        // will fire, and we might double-fire.
+        // We can check if the target is the surface or the image wrapper.
+        const target = event.target as HTMLElement;
+        const isButton = target.closest('button');
+
+        if (!isButton) {
+          const rect = viewerRef.current?.getBoundingClientRect();
+          const width = rect?.width ?? window.innerWidth;
+
+          if (event.clientX < width / 2) {
+            onShowPrevious();
+          } else {
+            onShowNext();
+          }
+        }
       }
-      return;
-    }
-
-    const { offsetX, offsetY } = transformRef.current;
-    const swipeAction = getAlbumSwipeAction(offsetX, offsetY);
-
-    commitTransform({
-      scale: 1,
-      offsetX: 0,
-      offsetY: 0,
-    });
-
-    if (swipeAction === 'close') {
-      onClose();
-      return;
-    }
-
-    if (swipeAction == null) {
-      return;
-    }
-
-    if (swipeAction === 'previous') {
-      onShowPrevious();
-    } else {
-      onShowNext();
     }
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    releasePointer(event.pointerId);
+    releasePointer(event.pointerId, event);
   }
 
   function handlePointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
-    releasePointer(event.pointerId);
+    releasePointer(event.pointerId, event);
   }
 
   const activeIndex = images.findIndex((image) => image.id === activeImage.id);
@@ -602,7 +588,7 @@ function PhotoViewer({
         </div>
 
         <div className={styles.viewerHint}>
-          Swipe left or right, swipe down to close, pinch to zoom.
+          Tap left or right to navigate, pinch to zoom.
         </div>
       </div>
     </div>
