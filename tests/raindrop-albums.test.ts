@@ -3,7 +3,9 @@ import { describe, it } from 'node:test';
 import {
   buildAlbumSearchParams,
   buildCollectionTree,
+  clampAlbumViewerTransform,
   getAdjacentAlbumImageId,
+  getAlbumSwipeAction,
   normalizeAlbumImage,
   normalizeAlbumImages,
   orderRootCollections,
@@ -162,5 +164,53 @@ describe('getAdjacentAlbumImageId', () => {
     assert.equal(getAdjacentAlbumImageId(images, 2, 'previous'), 1);
     assert.equal(getAdjacentAlbumImageId(images, 2, 'next'), 3);
     assert.equal(getAdjacentAlbumImageId(images, 3, 'next'), null);
+  });
+});
+
+describe('clampAlbumViewerTransform', () => {
+  it('preserves swipe offsets at base scale when requested', () => {
+    const transform = clampAlbumViewerTransform(
+      {
+        scale: 1,
+        offsetX: 140,
+        offsetY: 24,
+      },
+      {
+        width: 400,
+        height: 800,
+      },
+      {
+        allowOffsetAtBaseScale: true,
+      },
+    );
+
+    assert.equal(transform.offsetX, 140);
+    assert.equal(transform.offsetY, 24);
+  });
+
+  it('still resets offsets at base scale for non-swipe interactions', () => {
+    const transform = clampAlbumViewerTransform(
+      {
+        scale: 1,
+        offsetX: 140,
+        offsetY: 24,
+      },
+      {
+        width: 400,
+        height: 800,
+      },
+    );
+
+    assert.equal(transform.offsetX, 0);
+    assert.equal(transform.offsetY, 0);
+  });
+});
+
+describe('getAlbumSwipeAction', () => {
+  it('maps offsets to previous, next, or close actions', () => {
+    assert.equal(getAlbumSwipeAction(120, 10), 'previous');
+    assert.equal(getAlbumSwipeAction(-120, 10), 'next');
+    assert.equal(getAlbumSwipeAction(20, 130), 'close');
+    assert.equal(getAlbumSwipeAction(20, 40), null);
   });
 });

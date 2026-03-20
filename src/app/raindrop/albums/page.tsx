@@ -19,7 +19,9 @@ import type {
 } from '@/lib/raindrop-albums';
 import {
   buildAlbumSearchParams,
+  clampAlbumViewerTransform,
   getAdjacentAlbumImageId,
+  getAlbumSwipeAction,
   parseAlbumRouteState,
 } from '@/lib/raindrop-albums';
 import {
@@ -80,10 +82,6 @@ function flattenTree(nodes: CollectionNode[]) {
     byId,
     total,
   };
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
 }
 
 function buildHref(pathname: string, params: URLSearchParams) {
@@ -284,27 +282,24 @@ function PhotoViewer({
     offsetY: 0,
   });
 
-  function clampOffset(offset: number, size: number, scale: number) {
-    if (scale <= 1) {
-      return 0;
-    }
-
-    const limit = ((scale - 1) * size) / 2 + 48;
-    return clamp(offset, -limit, limit);
-  }
-
   function commitTransform(next: {
     scale: number;
     offsetX: number;
     offsetY: number;
+  }, options?: {
+    allowOffsetAtBaseScale?: boolean;
   }) {
     const rect = viewerRef.current?.getBoundingClientRect();
     const width = rect?.width ?? window.innerWidth;
     const height = rect?.height ?? window.innerHeight;
-    const scale = clamp(next.scale, 1, 4);
-    const offsetX = clampOffset(next.offsetX, width, scale);
-    const offsetY = clampOffset(next.offsetY, height, scale);
-    const clampedTransform = { scale, offsetX, offsetY };
+    const clampedTransform = clampAlbumViewerTransform(
+      next,
+      {
+        width,
+        height,
+      },
+      options,
+    );
 
     transformRef.current = clampedTransform;
     setTransform(clampedTransform);
@@ -479,6 +474,8 @@ function PhotoViewer({
         scale: 1,
         offsetX: event.clientX - interaction.startX,
         offsetY: event.clientY - interaction.startY,
+      }, {
+        allowOffsetAtBaseScale: true,
       });
     }
   }
@@ -512,10 +509,7 @@ function PhotoViewer({
     }
 
     const { offsetX, offsetY } = transformRef.current;
-    const horizontalSwipe =
-      Math.abs(offsetX) > 90 && Math.abs(offsetX) > Math.abs(offsetY) * 1.2;
-    const verticalSwipe =
-      offsetY > 110 && Math.abs(offsetY) > Math.abs(offsetX) * 1.1;
+    const swipeAction = getAlbumSwipeAction(offsetX, offsetY);
 
     commitTransform({
       scale: 1,
@@ -523,16 +517,16 @@ function PhotoViewer({
       offsetY: 0,
     });
 
-    if (verticalSwipe) {
+    if (swipeAction === 'close') {
       onClose();
       return;
     }
 
-    if (!horizontalSwipe) {
+    if (swipeAction == null) {
       return;
     }
 
-    if (offsetX > 0) {
+    if (swipeAction === 'previous') {
       onShowPrevious();
     } else {
       onShowNext();

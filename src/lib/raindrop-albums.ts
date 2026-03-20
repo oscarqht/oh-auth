@@ -98,12 +98,24 @@ export type AlbumRouteState = {
   photoId: number | null;
 };
 
+export type AlbumViewerTransform = {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+export type AlbumSwipeAction = 'previous' | 'next' | 'close' | null;
+
 function getStringCoverUrl(cover?: string[] | string) {
   if (Array.isArray(cover)) {
     return cover[0];
   }
 
   return cover;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function compareCollections(left: RawCollection, right: RawCollection) {
@@ -519,4 +531,56 @@ export function getAdjacentAlbumImageId(
   const offset = direction === 'previous' ? -1 : 1;
   const nextImage = images[index + offset];
   return nextImage?.id ?? null;
+}
+
+export function clampAlbumViewerTransform(
+  next: AlbumViewerTransform,
+  viewport: {
+    width: number;
+    height: number;
+  },
+  options: {
+    allowOffsetAtBaseScale?: boolean;
+  } = {},
+): AlbumViewerTransform {
+  const scale = clampNumber(next.scale, 1, 4);
+
+  const clampOffset = (offset: number, size: number) => {
+    if (scale <= 1 && !options.allowOffsetAtBaseScale) {
+      return 0;
+    }
+
+    if (scale <= 1) {
+      return offset;
+    }
+
+    const limit = ((scale - 1) * size) / 2 + 48;
+    return clampNumber(offset, -limit, limit);
+  };
+
+  return {
+    scale,
+    offsetX: clampOffset(next.offsetX, viewport.width),
+    offsetY: clampOffset(next.offsetY, viewport.height),
+  };
+}
+
+export function getAlbumSwipeAction(
+  offsetX: number,
+  offsetY: number,
+): AlbumSwipeAction {
+  const horizontalSwipe =
+    Math.abs(offsetX) > 90 && Math.abs(offsetX) > Math.abs(offsetY) * 1.2;
+  const verticalSwipe =
+    offsetY > 110 && Math.abs(offsetY) > Math.abs(offsetX) * 1.1;
+
+  if (verticalSwipe) {
+    return 'close';
+  }
+
+  if (!horizontalSwipe) {
+    return null;
+  }
+
+  return offsetX > 0 ? 'previous' : 'next';
 }
