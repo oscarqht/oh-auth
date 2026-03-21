@@ -65,6 +65,14 @@ function getCollectionHref(collectionId: number) {
   return `https://app.raindrop.io/my/${collectionId}`;
 }
 
+function formatCollectionCount(value: number) {
+  return new Intl.NumberFormat('en', {
+    notation: 'compact',
+    compactDisplay: 'short',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 function flattenTree(nodes: CollectionNode[]) {
   const byId = new Map<number, CollectionNode>();
   let total = 0;
@@ -207,10 +215,8 @@ function CollectionTreeNode({
               <span aria-hidden="true">☔</span>
             )}
           </span>
-          <span className={styles.treeText}>
-            <span className={styles.treeTitle}>{node.title}</span>
-            <span className={styles.treeMeta}>{node.count} saved</span>
-          </span>
+          <span className={styles.treeTitle}>{node.title}</span>
+          <span className={styles.treeCount}>{formatCollectionCount(node.count)}</span>
         </button>
       </div>
 
@@ -585,10 +591,6 @@ function PhotoViewer({
             className={styles.viewerImage}
             draggable={false}
           />
-        </div>
-
-        <div className={styles.viewerHint}>
-          Tap left or right to navigate, pinch to zoom.
         </div>
       </div>
     </div>

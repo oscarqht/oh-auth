@@ -122,14 +122,14 @@ function compareCollections(left: RawCollection, right: RawCollection) {
   const leftSort =
     typeof left.sort === 'number' && Number.isFinite(left.sort)
       ? left.sort
-      : Number.NEGATIVE_INFINITY;
+      : Number.MAX_SAFE_INTEGER;
   const rightSort =
     typeof right.sort === 'number' && Number.isFinite(right.sort)
       ? right.sort
-      : Number.NEGATIVE_INFINITY;
+      : Number.MAX_SAFE_INTEGER;
 
   if (leftSort !== rightSort) {
-    return rightSort - leftSort;
+    return leftSort - rightSort;
   }
 
   return left.title.localeCompare(right.title, 'en', { sensitivity: 'base' });

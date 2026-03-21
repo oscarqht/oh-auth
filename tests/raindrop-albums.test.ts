@@ -37,7 +37,7 @@ describe('orderRootCollections', () => {
 });
 
 describe('buildCollectionTree', () => {
-  it('orders child collections by sort descending then title', () => {
+  it('orders child collections by sort ascending then title', () => {
     const tree = buildCollectionTree(
       [{ _id: 10, title: 'Trips', sort: 5 }],
       [
@@ -47,8 +47,8 @@ describe('buildCollectionTree', () => {
       [],
     );
 
-    assert.deepEqual(tree[0]?.children.map((collection) => collection.id), [12, 11]);
-    assert.deepEqual(tree[0]?.children[0]?.pathIds, [10, 12]);
+    assert.deepEqual(tree[0]?.children.map((collection) => collection.id), [11, 12]);
+    assert.deepEqual(tree[0]?.children[0]?.pathIds, [10, 11]);
   });
 });
 

@@ -143,10 +143,10 @@
 .treeList {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.04rem;
   max-height: calc(100vh - 12rem);
   overflow: auto;
-  padding-right: 0.1rem;
+  padding: 0.15rem 0.1rem 0 0;
 }
 
 .treeNode {
@@ -157,19 +157,30 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.1rem;
-  padding: 0.08rem;
-  border-radius: 0.9rem;
+  gap: 0.14rem;
+  min-height: 2rem;
+  padding: 0.04rem 0;
+  border-radius: 0.72rem;
 }
 
 .treeRowSelected {
-  background: var(--albums-accent-soft);
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+}
+
+.treeRowSelected .treeTitle,
+.treeRowSelected .treeCount {
+  color: var(--albums-text);
+}
+
+.treeRowSelected .treeThumb {
+  background: rgb(255 255 255 / 0.08);
 }
 
 .treeToggle,
 .treeToggleSpacer {
-  width: 1.55rem;
-  height: 1.55rem;
+  width: 1rem;
+  height: 1rem;
   flex-shrink: 0;
 }
 
@@ -178,6 +189,9 @@
   border-radius: 999px;
   background: transparent;
   color: var(--albums-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .treeToggle:hover {
@@ -185,8 +199,23 @@
 }
 
 .treeChevron {
-  display: inline-block;
+  display: inline-flex;
+  width: 0.6rem;
+  height: 0.6rem;
+  align-items: center;
+  justify-content: center;
+  color: rgb(255 255 255 / 0.72);
+  font-size: 0;
   transition: transform 160ms ease;
+}
+
+.treeChevron::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-top: 0.24rem solid transparent;
+  border-bottom: 0.24rem solid transparent;
+  border-left: 0.32rem solid currentColor;
 }
 
 .treeChevronExpanded {
@@ -194,33 +223,36 @@
 }
 
 .treeSelect {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.46rem;
   min-width: 0;
   width: 100%;
-  padding: 0.32rem 0.38rem;
+  padding: 0.34rem 0.42rem;
   border: 0;
-  border-radius: 0.85rem;
+  border-radius: 0.66rem;
   background: transparent;
   color: inherit;
   text-align: left;
 }
 
 .treeSelect:hover {
-  background: rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.05);
 }
 
 .treeThumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.68rem;
-  background: linear-gradient(135deg, rgb(82 143 230 / 0.16), rgb(62 189 168 / 0.14));
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.38rem;
+  background: rgb(255 255 255 / 0.05);
+  color: rgb(255 255 255 / 0.72);
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
 }
 
 .treeThumbImage {
@@ -229,29 +261,49 @@
   object-fit: cover;
 }
 
-.treeText {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.treeThumb > span {
+  position: relative;
+  display: block;
+  width: 0.72rem;
+  height: 0.5rem;
+  border-radius: 0.1rem;
+  background: currentColor;
+  font-size: 0;
+}
+
+.treeThumb > span::before {
+  content: '';
+  position: absolute;
+  left: 0.06rem;
+  top: -0.14rem;
+  width: 0.34rem;
+  height: 0.16rem;
+  border-radius: 0.08rem 0.08rem 0 0;
+  background: currentColor;
 }
 
 .treeTitle {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-.treeMeta {
-  font-size: 0.68rem;
+.treeCount {
+  justify-self: end;
+  padding-left: 0.45rem;
+  font-size: 0.77rem;
   color: var(--albums-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .treeChildren {
-  margin-left: 1rem;
-  padding-left: 0.25rem;
-  border-left: 1px solid rgb(108 148 205 / 0.14);
+  margin-left: 0.48rem;
+  padding-left: 0.62rem;
+  border-left: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .sidebarEmpty,
@@ -575,19 +627,6 @@
   pointer-events: none;
 }
 
-.viewerHint {
-  position: absolute;
-  left: 50%;
-  bottom: 1.1rem;
-  transform: translateX(-50%);
-  padding: 0.65rem 0.9rem;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.08);
-  color: rgb(255 255 255 / 0.72);
-  font-size: 0.78rem;
-  backdrop-filter: blur(12px);
-}
-
 .mobileDrawerScrim {
   display: none;
 }
@@ -740,10 +779,10 @@
     display: none;
   }
 
-  .viewerHint {
-    width: calc(100% - 1.6rem);
-    text-align: center;
+  .viewerImage {
+    max-width: 100vw;
   }
+
 }
 
 @media (max-width: 420px) {
@@ -754,5 +793,15 @@
   .photoImage,
   .photoCard {
     min-height: 260px;
+  }
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  .viewerImage {
+    width: 100vw;
+    height: auto;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: contain;
   }
 }
