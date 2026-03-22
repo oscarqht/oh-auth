@@ -155,6 +155,7 @@ function SearchResultRow({
   badges,
   pinned,
   onTogglePinned,
+  onClick,
 }: {
   icon: string;
   href: string;
@@ -163,6 +164,7 @@ function SearchResultRow({
   badges: ReactNode;
   pinned: boolean;
   onTogglePinned: () => void;
+  onClick?: () => void;
 }) {
   return (
     <div className={styles.resultCard}>
@@ -171,6 +173,7 @@ function SearchResultRow({
         target="_blank"
         rel="noreferrer"
         className={styles.resultLink}
+        onClick={onClick}
       >
         <div className={styles.resultTopRow}>
           <span className={styles.resultLeadingIcon}>{icon}</span>
@@ -191,6 +194,7 @@ function SearchResults({
   error,
   pinnedResultKeys,
   onTogglePinned,
+  onResultClick,
 }: {
   results: SearchResult[];
   query: string;
@@ -198,6 +202,7 @@ function SearchResults({
   error: string | null;
   pinnedResultKeys: Set<string>;
   onTogglePinned: (result: SearchResult) => void;
+  onResultClick?: () => void;
 }) {
   if (query.trim().length < 3) {
     return null;
@@ -286,6 +291,7 @@ function SearchResults({
             }
             pinned={pinnedResultKeys.has(resultKey)}
             onTogglePinned={handleTogglePinned}
+            onClick={onResultClick}
           />
         );
       })}
@@ -983,6 +989,7 @@ export default function RaindropPage() {
                       error={searchError}
                       pinnedResultKeys={pinnedResultKeys}
                       onTogglePinned={handleTogglePinnedResult}
+                      onResultClick={() => setQuery('')}
                     />
                   </div>
                 ) : (
