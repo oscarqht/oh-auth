@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -260,6 +261,7 @@ function SearchResults({
               }
               pinned={pinnedResultKeys.has(resultKey)}
               onTogglePinned={handleTogglePinned}
+              onClick={onResultClick}
             />
           );
         }
@@ -465,6 +467,8 @@ export default function RaindropPage() {
   const [sessionDetailLoading, setSessionDetailLoading] = useState<
     Record<number, boolean | undefined>
   >({});
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const searchResults = useMemo(
     () => buildSearchResults(searchResponse),
@@ -958,6 +962,7 @@ export default function RaindropPage() {
                   </span>
                   <span className={styles.softInputFieldWrap}>
                     <input
+                      ref={searchInputRef}
                       type="text"
                       autoFocus
                       inputMode="search"
@@ -989,7 +994,10 @@ export default function RaindropPage() {
                       error={searchError}
                       pinnedResultKeys={pinnedResultKeys}
                       onTogglePinned={handleTogglePinnedResult}
-                      onResultClick={() => setQuery('')}
+                      onResultClick={() => {
+                        setQuery('');
+                        searchInputRef.current?.blur();
+                      }}
                     />
                   </div>
                 ) : (
