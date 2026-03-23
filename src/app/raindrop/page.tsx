@@ -410,7 +410,7 @@ function SessionTree({ details }: { details: SessionDetails }) {
                     <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ backgroundColor: node.color || 'gray' }} />
                     {node.title}
                   </div>
-                  <div className="space-y-1 px-3 pb-3">
+                  <div className="space-y-1 pb-3 pl-3">
                     {node.tabs.map((tab) => (
                       <a
                         key={`group-tab-${tab.id}`}
