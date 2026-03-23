@@ -920,7 +920,11 @@ export default function RaindropPage() {
               <span>Raindrop</span>
             </div>
             <div className={styles.headerActions}>
-              <Link className="btn btn-sm btn-ghost" href="/raindrop/albums">
+              <Link
+                className="btn btn-sm btn-ghost"
+                href="/raindrop/albums"
+                target="_blank"
+              >
                 Albums
               </Link>
               <button className="btn btn-sm btn-outline" onClick={handleLogout}>

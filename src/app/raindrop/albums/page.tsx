@@ -993,9 +993,6 @@ function RaindropAlbumsPageInner() {
             >
               Collections
             </button>
-            <Link className="btn btn-sm btn-ghost" href="/raindrop">
-              Workspace
-            </Link>
             <button className="btn btn-sm btn-outline" onClick={handleLogout}>
               Log out
             </button>
@@ -1038,9 +1035,6 @@ function RaindropAlbumsPageInner() {
               />
 
               <div className={styles.mobileDrawerFooter}>
-                <Link className="btn btn-sm btn-ghost" href="/raindrop">
-                  Workspace
-                </Link>
                 <button className="btn btn-sm btn-outline" onClick={handleLogout}>
                   Log out
                 </button>
