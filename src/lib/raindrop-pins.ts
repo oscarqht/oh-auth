@@ -117,7 +117,7 @@ export function togglePinnedRaindropResult(
     return currentResults.filter((result) => result.key !== nextResult.key);
   }
 
-  return [nextResult, ...currentResults];
+  return [...currentResults, nextResult];
 }
 
 export function isPinnedRaindropResult(

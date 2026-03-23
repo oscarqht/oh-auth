@@ -59,7 +59,7 @@ describe('toPinnedRaindropResult', () => {
 });
 
 describe('togglePinnedRaindropResult', () => {
-  it('adds a result to the front when it is not pinned yet', () => {
+  it('adds a result to the back when it is not pinned yet', () => {
     const first = {
       key: 'raindrop:1',
       type: 'raindrop',
@@ -80,7 +80,7 @@ describe('togglePinnedRaindropResult', () => {
       badgeTone: 'ghost',
     } as const;
 
-    assert.deepEqual(togglePinnedRaindropResult([first], second), [second, first]);
+    assert.deepEqual(togglePinnedRaindropResult([first], second), [first, second]);
   });
 
   it('removes a result when it is already pinned', () => {
