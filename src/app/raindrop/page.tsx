@@ -12,6 +12,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Nunito } from 'next/font/google';
 import type {
+  RaindropPinnedResultsResponse,
   RaindropSearchResponse,
   SessionDetails,
   SessionSummary,
@@ -28,19 +29,12 @@ import {
 } from '@/lib/raindrop-web-auth';
 import {
   getPinnedResultColor,
-  loadPinnedRaindropResults,
-  savePinnedRaindropResults,
   toPinnedRaindropResult,
-  togglePinnedRaindropResult,
   type PinnedRaindropResult,
 } from '@/lib/raindrop-pins';
 import styles from './page.module.css';
 
 type AuthState = 'checking' | 'redirecting' | 'ready' | 'error';
-type ToastState = {
-  id: number;
-  message: string;
-} | null;
 const RAINDROP_ICON_HREF = '/img/provider-raindrop-icon.png';
 
 const nunito = Nunito({
@@ -120,32 +114,8 @@ function buildSearchResults(response: RaindropSearchResponse | null) {
   ];
 }
 
-function getSearchResultKey(result: SearchResult) {
-  return `${result.type}:${result.data._id}`;
-}
-
 function getBadgeClassName(tone: 'ghost' | 'accent') {
   return `badge badge-sm ${tone === 'accent' ? 'badge-accent' : 'badge-ghost'}`;
-}
-
-function PinButton({
-  pinned,
-  onClick,
-}: {
-  pinned: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${styles.pinButton} ${pinned ? styles.pinButtonPinned : ''}`}
-      aria-label={pinned ? 'Unpin result' : 'Pin result'}
-      title={pinned ? 'Unpin result' : 'Pin result'}
-    >
-      <span aria-hidden="true">{pinned ? '📌' : '📌'}</span>
-    </button>
-  );
 }
 
 function SearchResultRow({
@@ -154,8 +124,6 @@ function SearchResultRow({
   title,
   subtitle,
   badges,
-  pinned,
-  onTogglePinned,
   onClick,
 }: {
   icon: string;
@@ -163,8 +131,6 @@ function SearchResultRow({
   title: string;
   subtitle: string;
   badges: ReactNode;
-  pinned: boolean;
-  onTogglePinned: () => void;
   onClick?: () => void;
 }) {
   return (
@@ -183,7 +149,6 @@ function SearchResultRow({
         </div>
         <p className={styles.resultSubtitle}>{subtitle}</p>
       </a>
-      <PinButton pinned={pinned} onClick={onTogglePinned} />
     </div>
   );
 }
@@ -193,16 +158,12 @@ function SearchResults({
   query,
   searching,
   error,
-  pinnedResultKeys,
-  onTogglePinned,
   onResultClick,
 }: {
   results: SearchResult[];
   query: string;
   searching: boolean;
   error: string | null;
-  pinnedResultKeys: Set<string>;
-  onTogglePinned: (result: SearchResult) => void;
   onResultClick?: () => void;
 }) {
   if (query.trim().length < 3) {
@@ -237,9 +198,6 @@ function SearchResults({
   return (
     <div className={styles.resultsList}>
       {results.map((result) => {
-        const resultKey = getSearchResultKey(result);
-        const handleTogglePinned = () => onTogglePinned(result);
-
         if (result.type === 'raindrop') {
           return (
             <SearchResultRow
@@ -259,8 +217,6 @@ function SearchResults({
                   </span>
                 ) : null
               }
-              pinned={pinnedResultKeys.has(resultKey)}
-              onTogglePinned={handleTogglePinned}
               onClick={onResultClick}
             />
           );
@@ -291,8 +247,6 @@ function SearchResults({
                 ) : null}
               </>
             }
-            pinned={pinnedResultKeys.has(resultKey)}
-            onTogglePinned={handleTogglePinned}
             onClick={onResultClick}
           />
         );
@@ -303,13 +257,36 @@ function SearchResults({
 
 function PinnedResults({
   results,
-  onRemove,
+  loading,
+  error,
 }: {
   results: PinnedRaindropResult[];
-  onRemove: (resultKey: string) => void;
+  loading: boolean;
+  error: string | null;
 }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-3 rounded-2xl border border-base-300/80 px-4 py-7 text-sm text-base-content/70">
+        <span className="loading loading-spinner loading-sm" />
+        Loading pinned results...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
+        {error}
+      </div>
+    );
+  }
+
   if (results.length === 0) {
-    return null;
+    return (
+      <div className="rounded-2xl border border-dashed border-base-300/80 px-4 py-7 text-center text-sm text-base-content/60">
+        No pinned results found in Raindrop backup.
+      </div>
+    );
   }
 
   return (
@@ -338,19 +315,6 @@ function PinnedResults({
                 {result.type === 'raindrop' ? '💧' : '📥'}
               </span>
               <span className={styles.pinnedTagTitle}>{result.title}</span>
-              <button
-                type="button"
-                className={styles.pinnedTagRemove}
-                aria-label={`Unpin ${result.title}`}
-                title="Unpin"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onRemove(result.key);
-                }}
-              >
-                ✕
-              </button>
             </a>
           );
         })}
@@ -444,7 +408,6 @@ function SessionTree({ details }: { details: SessionDetails }) {
 export default function RaindropPage() {
   const [authState, setAuthState] = useState<AuthState>('checking');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
   const [tokens, setTokens] = useState<StoredProviderTokens | null>(null);
   const [query, setQuery] = useState('');
   const [searchResponse, setSearchResponse] =
@@ -452,6 +415,10 @@ export default function RaindropPage() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [pinnedResults, setPinnedResults] = useState<PinnedRaindropResult[]>([]);
+  const [pinnedResultsLoading, setPinnedResultsLoading] = useState(false);
+  const [pinnedResultsError, setPinnedResultsError] = useState<string | null>(
+    null,
+  );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -474,56 +441,7 @@ export default function RaindropPage() {
     () => buildSearchResults(searchResponse),
     [searchResponse],
   );
-  const pinnedResultKeys = useMemo(
-    () => new Set(pinnedResults.map((result) => result.key)),
-    [pinnedResults],
-  );
   const showSearchResults = query.trim().length >= 3;
-
-  function updatePinnedResults(
-    nextResultsOrUpdater:
-      | PinnedRaindropResult[]
-      | ((current: PinnedRaindropResult[]) => PinnedRaindropResult[]),
-  ) {
-    setPinnedResults((current) => {
-      const nextResults =
-        typeof nextResultsOrUpdater === 'function'
-          ? nextResultsOrUpdater(current)
-          : nextResultsOrUpdater;
-      savePinnedRaindropResults(nextResults);
-      return nextResults;
-    });
-  }
-
-  function showToast(message: string) {
-    setToast({
-      id: Date.now(),
-      message,
-    });
-  }
-
-  function handleTogglePinnedResult(result: SearchResult) {
-    const pinnedResult = toPinnedRaindropResult(result);
-    const alreadyPinned = pinnedResultKeys.has(pinnedResult.key);
-    updatePinnedResults((current) =>
-      togglePinnedRaindropResult(current, pinnedResult),
-    );
-    showToast(
-      alreadyPinned
-        ? `Unpinned "${pinnedResult.title}".`
-        : `Pinned "${pinnedResult.title}".`,
-    );
-  }
-
-  function handleRemovePinnedResult(resultKey: string) {
-    const result = pinnedResults.find((item) => item.key === resultKey);
-    updatePinnedResults((current) =>
-      current.filter((result) => result.key !== resultKey),
-    );
-    if (result) {
-      showToast(`Unpinned "${result.title}".`);
-    }
-  }
 
   function syncResolvedTokens(nextTokens: StoredProviderTokens) {
     setTokens((current) =>
@@ -581,6 +499,33 @@ export default function RaindropPage() {
     setSessions(response.sessions);
   }
 
+  async function loadPinnedResults() {
+    setPinnedResultsLoading(true);
+    setPinnedResultsError(null);
+
+    try {
+      const nextTokens = await resolveTokens();
+      if (!nextTokens) {
+        return;
+      }
+
+      const response = await fetchRaindropJson<RaindropPinnedResultsResponse>(
+        '/api/raindrop/pinned-results',
+        nextTokens,
+      );
+      setPinnedResults(response.results.map(toPinnedRaindropResult));
+    } catch (error) {
+      setPinnedResults([]);
+      setPinnedResultsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to load pinned results',
+      );
+    } finally {
+      setPinnedResultsLoading(false);
+    }
+  }
+
   async function loadSessionDetails(sessionId: number) {
     setSessionDetailLoading((current) => ({ ...current, [sessionId]: true }));
     setSessionDetailErrors((current) => ({ ...current, [sessionId]: undefined }));
@@ -630,6 +575,9 @@ export default function RaindropPage() {
     clearStoredRaindropTokens();
     setTokens(null);
     setSearchResponse(null);
+    setPinnedResults([]);
+    setPinnedResultsLoading(false);
+    setPinnedResultsError(null);
     setSessions([]);
     setExpandedSessions({});
     setSessionDetails({});
@@ -637,24 +585,6 @@ export default function RaindropPage() {
     setSessionDetailLoading({});
     window.location.replace('/');
   }
-
-  useEffect(() => {
-    setPinnedResults(loadPinnedRaindropResults());
-  }, []);
-
-  useEffect(() => {
-    if (!toast) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setToast((current) => (current?.id === toast.id ? null : current));
-    }, 2200);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [toast]);
 
   useEffect(() => {
     const selector =
@@ -755,6 +685,7 @@ export default function RaindropPage() {
     }
 
     void loadSessions();
+    void loadPinnedResults();
     // Trigger session loading whenever we reach a ready authenticated state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, tokens]);
@@ -886,6 +817,7 @@ export default function RaindropPage() {
                     const nextTokens = await resolveTokens();
                     if (nextTokens) {
                       await loadSessions();
+                      await loadPinnedResults();
                     }
                   })();
                 }}
@@ -901,11 +833,6 @@ export default function RaindropPage() {
 
   return (
     <main className={`${nunito.className} ${styles.page}`}>
-      {toast ? (
-        <div className={styles.toastViewport} role="status" aria-live="polite">
-          <div className={styles.toastMessage}>{toast.message}</div>
-        </div>
-      ) : null}
       <div className={styles.shell}>
         <div className={styles.content}>
           <header className={styles.header}>
@@ -996,8 +923,6 @@ export default function RaindropPage() {
                       query={query}
                       searching={searching}
                       error={searchError}
-                      pinnedResultKeys={pinnedResultKeys}
-                      onTogglePinned={handleTogglePinnedResult}
                       onResultClick={() => {
                         setQuery('');
                         searchInputRef.current?.blur();
@@ -1007,7 +932,8 @@ export default function RaindropPage() {
                 ) : (
                   <PinnedResults
                     results={pinnedResults}
-                    onRemove={handleRemovePinnedResult}
+                    loading={pinnedResultsLoading}
+                    error={pinnedResultsError}
                   />
                 )}
               </div>

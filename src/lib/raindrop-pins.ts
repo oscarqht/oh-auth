@@ -1,6 +1,5 @@
-import type { RaindropSearchResponse } from '@/lib/raindrop-api';
+import type { BackupPinnedSearchResult } from '@/lib/raindrop-api';
 
-const PINNED_RESULTS_STORAGE_KEY = 'nenya.raindrop.pinned-results.v1';
 const PINNED_COLOR_PALETTE = [
   { bg: '#fecaca', text: '#991b1b' },
   { bg: '#fed7aa', text: '#9a3412' },
@@ -16,129 +15,20 @@ const PINNED_COLOR_PALETTE = [
 
 export type PinnedRaindropResult = {
   key: string;
-  type: 'raindrop' | 'raindrop-collection';
-  id: number;
+  type: BackupPinnedSearchResult['type'];
   href: string;
   title: string;
-  subtitle: string;
-  badge?: string;
-  badgeTone: 'ghost' | 'accent';
-  count?: number;
 };
 
-type SearchResult =
-  | {
-      type: 'raindrop';
-      data: RaindropSearchResponse['items'][number];
-    }
-  | {
-      type: 'raindrop-collection';
-      data: RaindropSearchResponse['collections'][number];
-    };
-
-function getPinnedResultKey(type: PinnedRaindropResult['type'], id: number) {
-  return `${type}:${id}`;
-}
-
 export function toPinnedRaindropResult(
-  result: SearchResult,
+  result: BackupPinnedSearchResult,
 ): PinnedRaindropResult {
-  if (result.type === 'raindrop') {
-    return {
-      key: getPinnedResultKey(result.type, result.data._id),
-      type: result.type,
-      id: result.data._id,
-      href: result.data.link,
-      title: result.data.title || result.data.link,
-      subtitle: result.data.link,
-      badge: result.data.collectionTitle,
-      badgeTone: result.data.isSession ? 'accent' : 'ghost',
-    };
-  }
-
   return {
-    key: getPinnedResultKey(result.type, result.data._id),
+    key: `${result.type}:${result.url}`,
     type: result.type,
-    id: result.data._id,
-    href:
-      result.data._id === -1
-        ? 'https://app.raindrop.io/my/-1'
-        : `https://app.raindrop.io/my/${result.data._id}`,
-    title: result.data.title,
-    subtitle: 'Open collection in Raindrop',
-    badge: result.data.parentCollectionTitle,
-    badgeTone: result.data.isSession ? 'accent' : 'ghost',
-    count: result.data.count,
+    href: result.url,
+    title: result.title,
   };
-}
-
-export function loadPinnedRaindropResults() {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(PINNED_RESULTS_STORAGE_KEY);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter(isPinnedRaindropResult);
-  } catch {
-    return [];
-  }
-}
-
-export function savePinnedRaindropResults(results: PinnedRaindropResult[]) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(
-    PINNED_RESULTS_STORAGE_KEY,
-    JSON.stringify(results),
-  );
-}
-
-export function togglePinnedRaindropResult(
-  currentResults: PinnedRaindropResult[],
-  nextResult: PinnedRaindropResult,
-) {
-  const existingIndex = currentResults.findIndex(
-    (result) => result.key === nextResult.key,
-  );
-
-  if (existingIndex >= 0) {
-    return currentResults.filter((result) => result.key !== nextResult.key);
-  }
-
-  return [...currentResults, nextResult];
-}
-
-export function isPinnedRaindropResult(
-  value: unknown,
-): value is PinnedRaindropResult {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.key === 'string' &&
-    (candidate.type === 'raindrop' || candidate.type === 'raindrop-collection') &&
-    typeof candidate.id === 'number' &&
-    typeof candidate.href === 'string' &&
-    typeof candidate.title === 'string' &&
-    typeof candidate.subtitle === 'string' &&
-    (candidate.badge === undefined || typeof candidate.badge === 'string') &&
-    (candidate.badgeTone === 'ghost' || candidate.badgeTone === 'accent') &&
-    (candidate.count === undefined || typeof candidate.count === 'number')
-  );
 }
 
 export function getPinnedResultColor(seed: string) {

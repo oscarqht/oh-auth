@@ -1,129 +1,36 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  getPinnedResultColor,
-  isPinnedRaindropResult,
-  toPinnedRaindropResult,
-  togglePinnedRaindropResult,
-} from '../src/lib/raindrop-pins';
+import { getPinnedResultColor, toPinnedRaindropResult } from '../src/lib/raindrop-pins';
 
 describe('toPinnedRaindropResult', () => {
-  it('normalizes searchable Raindrop items into pinned shortcut records', () => {
+  it('maps backup-backed pinned results into readonly UI records', () => {
     const pinned = toPinnedRaindropResult({
+      title: 'Palx repo',
+      url: 'https://example.com/palx',
       type: 'raindrop',
-      data: {
-        _id: 42,
-        link: 'https://example.com/palx',
-        title: 'Palx repo',
-        collectionTitle: 'palx',
-        isSession: false,
-      },
     });
 
     assert.deepEqual(pinned, {
-      key: 'raindrop:42',
+      key: 'raindrop:https://example.com/palx',
       type: 'raindrop',
-      id: 42,
       href: 'https://example.com/palx',
       title: 'Palx repo',
-      subtitle: 'https://example.com/palx',
-      badge: 'palx',
-      badgeTone: 'ghost',
     });
   });
 
-  it('normalizes searchable collections into pinned shortcut records', () => {
+  it('preserves collection pins with collection type', () => {
     const pinned = toPinnedRaindropResult({
+      title: 'Drafts',
+      url: 'https://app.raindrop.io/my/7',
       type: 'raindrop-collection',
-      data: {
-        _id: 7,
-        title: 'Dia - Office',
-        count: 12,
-        parentCollectionTitle: 'Sessions',
-        isSession: true,
-      },
     });
 
     assert.deepEqual(pinned, {
-      key: 'raindrop-collection:7',
+      key: 'raindrop-collection:https://app.raindrop.io/my/7',
       type: 'raindrop-collection',
-      id: 7,
       href: 'https://app.raindrop.io/my/7',
-      title: 'Dia - Office',
-      subtitle: 'Open collection in Raindrop',
-      badge: 'Sessions',
-      badgeTone: 'accent',
-      count: 12,
+      title: 'Drafts',
     });
-  });
-});
-
-describe('togglePinnedRaindropResult', () => {
-  it('adds a result to the back when it is not pinned yet', () => {
-    const first = {
-      key: 'raindrop:1',
-      type: 'raindrop',
-      id: 1,
-      href: 'https://example.com/1',
-      title: 'One',
-      subtitle: 'https://example.com/1',
-      badgeTone: 'ghost',
-    } as const;
-
-    const second = {
-      key: 'raindrop:2',
-      type: 'raindrop',
-      id: 2,
-      href: 'https://example.com/2',
-      title: 'Two',
-      subtitle: 'https://example.com/2',
-      badgeTone: 'ghost',
-    } as const;
-
-    assert.deepEqual(togglePinnedRaindropResult([first], second), [first, second]);
-  });
-
-  it('removes a result when it is already pinned', () => {
-    const pinned = {
-      key: 'raindrop:1',
-      type: 'raindrop',
-      id: 1,
-      href: 'https://example.com/1',
-      title: 'One',
-      subtitle: 'https://example.com/1',
-      badgeTone: 'ghost',
-    } as const;
-
-    assert.deepEqual(togglePinnedRaindropResult([pinned], pinned), []);
-  });
-});
-
-describe('isPinnedRaindropResult', () => {
-  it('accepts valid pinned shortcut payloads', () => {
-    assert.equal(
-      isPinnedRaindropResult({
-        key: 'raindrop:1',
-        type: 'raindrop',
-        id: 1,
-        href: 'https://example.com/1',
-        title: 'One',
-        subtitle: 'https://example.com/1',
-        badge: 'palx',
-        badgeTone: 'ghost',
-      }),
-      true,
-    );
-  });
-
-  it('rejects malformed pinned shortcut payloads', () => {
-    assert.equal(
-      isPinnedRaindropResult({
-        key: 'raindrop:1',
-        type: 'raindrop',
-        id: '1',
-      }),
-      false,
-    );
   });
 });
 

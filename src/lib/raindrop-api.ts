@@ -1,6 +1,10 @@
+import { inflateRawSync } from 'node:zlib';
+
 const RAINDROP_API_BASE = 'https://api.raindrop.io/rest/v1';
 const FETCH_PAGE_SIZE = 50;
 const SESSIONS_COLLECTION_NAME = 'nenya / sessions';
+const BACKUP_COLLECTION_NAME = 'nenya / backup';
+const BACKUP_FILE_NAME = 'options_backup.txt';
 const EXCLUDED_COLLECTION_NAME = 'nenya / options';
 const EXCLUDED_RESULT_URL_PATTERNS = [
   'nenya.local',
@@ -23,6 +27,7 @@ type RaindropCollection = {
 type RaindropItem = {
   _id: number;
   title?: string;
+  type?: string;
   link: string;
   excerpt?: string;
   note?: string;
@@ -30,6 +35,10 @@ type RaindropItem = {
   collectionId?: number;
   lastUpdate?: string;
   dateAdded?: string;
+  file?: {
+    name?: string;
+    link?: string;
+  };
 };
 
 type SessionTab = {
@@ -69,6 +78,16 @@ export type RaindropSearchResponse = {
   >;
 };
 
+export type BackupPinnedSearchResult = {
+  title: string;
+  url: string;
+  type: 'raindrop' | 'raindrop-collection';
+};
+
+export type RaindropPinnedResultsResponse = {
+  results: BackupPinnedSearchResult[];
+};
+
 export type SessionSummary = {
   id: number;
   title: string;
@@ -95,6 +114,51 @@ export function readBearerAccessToken(request: Request) {
 
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   return match?.[1] ?? null;
+}
+
+function isSupportedPinnedSearchResultType(
+  value: unknown,
+): value is BackupPinnedSearchResult['type'] {
+  return value === 'raindrop' || value === 'raindrop-collection';
+}
+
+export function normalizeBackupPinnedSearchResults(
+  value: unknown,
+): BackupPinnedSearchResult[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.reduce<BackupPinnedSearchResult[]>((results, item) => {
+    if (!item || typeof item !== 'object') {
+      return results;
+    }
+
+    const candidate = item as Record<string, unknown>;
+    const title =
+      typeof candidate.title === 'string' ? candidate.title.trim() : '';
+    const url = typeof candidate.url === 'string' ? candidate.url.trim() : '';
+    const type = candidate.type;
+
+    if (!title || !url || !isSupportedPinnedSearchResultType(type)) {
+      return results;
+    }
+
+    results.push({ title, url, type });
+    return results;
+  }, []);
+}
+
+export function extractBackupPinnedSearchResults(
+  payload: unknown,
+): BackupPinnedSearchResult[] {
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  return normalizeBackupPinnedSearchResults(
+    (payload as Record<string, unknown>).pinnedSearchResults,
+  );
 }
 
 type FetchPageResponse = {
@@ -306,6 +370,153 @@ async function fetchAllItemsInCollection(
 
     page += 1;
   }
+}
+
+function extractZipEntryText(
+  archive: Uint8Array,
+  targetFileName: string,
+): string | null {
+  const localFileHeaderSignature = 0x04034b50;
+  const centralDirectorySignature = 0x02014b50;
+  const endOfCentralDirectorySignature = 0x06054b50;
+  const decoder = new TextDecoder();
+  const endOfCentralDirectoryMinimumSize = 22;
+
+  if (archive.length < endOfCentralDirectoryMinimumSize) {
+    return null;
+  }
+
+  let endOfCentralDirectoryOffset = -1;
+  for (let offset = archive.length - endOfCentralDirectoryMinimumSize; offset >= 0; offset -= 1) {
+    const view = new DataView(
+      archive.buffer,
+      archive.byteOffset + offset,
+      archive.byteLength - offset,
+    );
+
+    if (view.getUint32(0, true) === endOfCentralDirectorySignature) {
+      endOfCentralDirectoryOffset = offset;
+      break;
+    }
+  }
+
+  if (endOfCentralDirectoryOffset < 0) {
+    return null;
+  }
+
+  const endOfCentralDirectoryView = new DataView(
+    archive.buffer,
+    archive.byteOffset + endOfCentralDirectoryOffset,
+    archive.byteLength - endOfCentralDirectoryOffset,
+  );
+  const centralDirectorySize = endOfCentralDirectoryView.getUint32(12, true);
+  const centralDirectoryOffset = endOfCentralDirectoryView.getUint32(16, true);
+  let offset = centralDirectoryOffset;
+  const centralDirectoryEnd = centralDirectoryOffset + centralDirectorySize;
+
+  while (offset + 46 <= centralDirectoryEnd && offset + 46 <= archive.length) {
+    const centralView = new DataView(
+      archive.buffer,
+      archive.byteOffset + offset,
+      archive.byteLength - offset,
+    );
+
+    if (centralView.getUint32(0, true) !== centralDirectorySignature) {
+      break;
+    }
+
+    const compressionMethod = centralView.getUint16(10, true);
+    const compressedSize = centralView.getUint32(20, true);
+    const fileNameLength = centralView.getUint16(28, true);
+    const extraFieldLength = centralView.getUint16(30, true);
+    const commentLength = centralView.getUint16(32, true);
+    const localHeaderOffset = centralView.getUint32(42, true);
+    const fileNameStart = offset + 46;
+    const fileNameEnd = fileNameStart + fileNameLength;
+    const fileName = decoder.decode(archive.subarray(fileNameStart, fileNameEnd));
+
+    if (fileName === targetFileName) {
+      if (localHeaderOffset + 30 > archive.length) {
+        return null;
+      }
+
+      const localView = new DataView(
+        archive.buffer,
+        archive.byteOffset + localHeaderOffset,
+        archive.byteLength - localHeaderOffset,
+      );
+
+      if (localView.getUint32(0, true) !== localFileHeaderSignature) {
+        return null;
+      }
+
+      const localFileNameLength = localView.getUint16(26, true);
+      const localExtraFieldLength = localView.getUint16(28, true);
+      const dataStart = localHeaderOffset + 30 + localFileNameLength + localExtraFieldLength;
+      const dataEnd = dataStart + compressedSize;
+
+      if (dataEnd > archive.length) {
+        return null;
+      }
+
+      const data = archive.subarray(dataStart, dataEnd);
+      if (compressionMethod === 0) {
+        return decoder.decode(data);
+      }
+      if (compressionMethod === 8) {
+        return inflateRawSync(data).toString('utf8');
+      }
+      throw new Error(`Unsupported ZIP compression method: ${compressionMethod}`);
+    }
+
+    offset = fileNameEnd + extraFieldLength + commentLength;
+  }
+
+  return null;
+}
+
+async function fetchBackupPayload(accessToken: string): Promise<unknown | null> {
+  const { rootCollections } = await fetchAllCollections(accessToken);
+  const backupCollection = rootCollections.find(
+    (collection) => collection.title === BACKUP_COLLECTION_NAME,
+  );
+
+  if (!backupCollection) {
+    return null;
+  }
+
+  const response = await fetch(
+    `${RAINDROP_API_BASE}/raindrops/${backupCollection._id}/export.zip`,
+    {
+      cache: 'no-store',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: 'application/zip, application/octet-stream;q=0.9, */*;q=0.8',
+      },
+    },
+  );
+  if (!response.ok) {
+    throw new Error('Failed to export Raindrop backup collection');
+  }
+
+  const archive = new Uint8Array(await response.arrayBuffer());
+  const payloadText = extractZipEntryText(archive, BACKUP_FILE_NAME);
+  if (!payloadText) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(payloadText) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchBackupPinnedSearchResults(
+  accessToken: string,
+): Promise<BackupPinnedSearchResult[]> {
+  const payload = await fetchBackupPayload(accessToken);
+  return extractBackupPinnedSearchResults(payload);
 }
 
 export async function searchRaindropWorkspace(

@@ -1,26 +1,25 @@
 ## ADDED Requirements
-### Requirement: Pin Raindrop Search Results
+### Requirement: Show Backup-Backed Pinned Raindrop Results
 
-The system SHALL let authenticated users pin and unpin `/raindrop` search result items and collections for quick access in the workspace.
+The system SHALL show authenticated users the pinned Raindrop search results stored in the extension backup payload in Raindrop.
 
-#### Scenario: Pin a result from search
+#### Scenario: Load pinned results from the Raindrop backup payload
 
 - **GIVEN** the user is authenticated on `/raindrop`
-- **AND** search results are visible for the current query
-- **WHEN** the user pins a Raindrop item or collection result
-- **THEN** the page stores that result in browser storage for the workspace
-- **AND** the result appears in the pinned section near the search input
+- **WHEN** the page loads the `nenya / backup` collection and parses `options_backup.txt`
+- **THEN** it restores valid `pinnedSearchResults` entries from the backup payload
+- **AND** shows them in the pinned section near the search input when no search query is active
 
-#### Scenario: Unpin a previously pinned result
+#### Scenario: Missing backup data yields an empty pinned state
 
-- **GIVEN** a result is already pinned in the `/raindrop` workspace
-- **WHEN** the user unpins that result from the search list or pinned section
-- **THEN** the page removes it from browser storage
-- **AND** the result no longer appears in the pinned section
+- **GIVEN** the backup collection, backup file, or `pinnedSearchResults` payload is missing or malformed
+- **WHEN** `/raindrop` loads
+- **THEN** the page shows an empty pinned state
+- **AND** it does not fall back to page-local browser storage
 
-#### Scenario: Reload restores pinned results
+#### Scenario: Search results remain read-only
 
-- **GIVEN** the user previously pinned one or more `/raindrop` results
-- **WHEN** the user reloads `/raindrop` with a valid login
-- **THEN** the page restores the pinned results from browser storage
-- **AND** shows them without requiring a new search
+- **GIVEN** search results are visible for the current query on `/raindrop`
+- **WHEN** the user views those results
+- **THEN** the page does not offer pin or unpin controls for them
+- **AND** pinned result changes must come from the Raindrop backup payload
