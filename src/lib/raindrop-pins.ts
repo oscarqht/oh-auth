@@ -31,6 +31,19 @@ export function toPinnedRaindropResult(
   };
 }
 
+export function getPinnedResultIcon(type: BackupPinnedSearchResult['type']) {
+  switch (type) {
+    case 'raindrop':
+      return '💧';
+    case 'raindrop-collection':
+      return '📥';
+    case 'notion-page':
+      return '📝';
+    case 'notion-data-source':
+      return '🗃️';
+  }
+}
+
 export function getPinnedResultColor(seed: string) {
   let hash = 0;
   for (let index = 0; index < seed.length; index += 1) {

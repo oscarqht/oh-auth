@@ -124,6 +124,16 @@ describe('normalizeBackupPinnedSearchResults', () => {
     const normalized = normalizeBackupPinnedSearchResults([
       { title: 'One', url: 'https://example.com/1', type: 'raindrop' },
       { title: 'Two', url: 'https://example.com/2', type: 'raindrop-collection' },
+      {
+        title: 'Projects',
+        url: 'https://www.notion.so/acme/Projects-123',
+        type: 'notion-page',
+      },
+      {
+        title: 'Roadmap',
+        url: 'https://www.notion.so/acme/Roadmap-456',
+        type: 'notion-data-source',
+      },
       { title: 'Bad', url: '', type: 'raindrop' },
       { title: 'Also bad', url: 'https://example.com/3', type: 'other' },
       null,
@@ -135,6 +145,16 @@ describe('normalizeBackupPinnedSearchResults', () => {
         title: 'Two',
         url: 'https://example.com/2',
         type: 'raindrop-collection',
+      },
+      {
+        title: 'Projects',
+        url: 'https://www.notion.so/acme/Projects-123',
+        type: 'notion-page',
+      },
+      {
+        title: 'Roadmap',
+        url: 'https://www.notion.so/acme/Roadmap-456',
+        type: 'notion-data-source',
       },
     ]);
   });
@@ -180,6 +200,11 @@ describe('fetchBackupPinnedSearchResults', () => {
                 url: 'https://example.com/2',
                 type: 'raindrop-collection',
               },
+              {
+                title: 'Projects',
+                url: 'https://www.notion.so/acme/Projects-123',
+                type: 'notion-page',
+              },
               { title: 'Ignored', url: 'https://example.com/3', type: 'other' },
             ],
           }),
@@ -197,6 +222,11 @@ describe('fetchBackupPinnedSearchResults', () => {
         title: 'Two',
         url: 'https://example.com/2',
         type: 'raindrop-collection',
+      },
+      {
+        title: 'Projects',
+        url: 'https://www.notion.so/acme/Projects-123',
+        type: 'notion-page',
       },
     ]);
     assert.equal(exportAuthHeader, 'Bearer token');
