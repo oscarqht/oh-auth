@@ -81,7 +81,11 @@ export type RaindropSearchResponse = {
 export type BackupPinnedSearchResult = {
   title: string;
   url: string;
-  type: 'raindrop' | 'raindrop-collection';
+  type:
+    | 'raindrop'
+    | 'raindrop-collection'
+    | 'notion-page'
+    | 'notion-data-source';
 };
 
 export type RaindropPinnedResultsResponse = {
@@ -119,7 +123,12 @@ export function readBearerAccessToken(request: Request) {
 function isSupportedPinnedSearchResultType(
   value: unknown,
 ): value is BackupPinnedSearchResult['type'] {
-  return value === 'raindrop' || value === 'raindrop-collection';
+  return (
+    value === 'raindrop' ||
+    value === 'raindrop-collection' ||
+    value === 'notion-page' ||
+    value === 'notion-data-source'
+  );
 }
 
 export function normalizeBackupPinnedSearchResults(

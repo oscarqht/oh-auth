@@ -29,6 +29,7 @@ import {
 } from '@/lib/raindrop-web-auth';
 import {
   getPinnedResultColor,
+  getPinnedResultIcon,
   toPinnedRaindropResult,
   type PinnedRaindropResult,
 } from '@/lib/raindrop-pins';
@@ -311,9 +312,7 @@ function PinnedResults({
               title={result.title}
             >
               <span className={styles.pinnedTagIndex}>{index + 1}</span>
-              <span className={styles.pinnedTagIcon}>
-                {result.type === 'raindrop' ? '💧' : '📥'}
-              </span>
+              <span className={styles.pinnedTagIcon}>{getPinnedResultIcon(result.type)}</span>
               <span className={styles.pinnedTagTitle}>{result.title}</span>
             </a>
           );

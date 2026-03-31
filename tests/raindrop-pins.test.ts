@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getPinnedResultColor, toPinnedRaindropResult } from '../src/lib/raindrop-pins';
+import {
+  getPinnedResultColor,
+  getPinnedResultIcon,
+  toPinnedRaindropResult,
+} from '../src/lib/raindrop-pins';
 
 describe('toPinnedRaindropResult', () => {
   it('maps backup-backed pinned results into readonly UI records', () => {
@@ -31,6 +35,30 @@ describe('toPinnedRaindropResult', () => {
       href: 'https://app.raindrop.io/my/7',
       title: 'Drafts',
     });
+  });
+
+  it('preserves notion page pins from backup', () => {
+    const pinned = toPinnedRaindropResult({
+      title: 'Projects',
+      url: 'https://www.notion.so/acme/Projects-123',
+      type: 'notion-page',
+    });
+
+    assert.deepEqual(pinned, {
+      key: 'notion-page:https://www.notion.so/acme/Projects-123',
+      type: 'notion-page',
+      href: 'https://www.notion.so/acme/Projects-123',
+      title: 'Projects',
+    });
+  });
+});
+
+describe('getPinnedResultIcon', () => {
+  it('returns the matching icon for each supported pin type', () => {
+    assert.equal(getPinnedResultIcon('raindrop'), '💧');
+    assert.equal(getPinnedResultIcon('raindrop-collection'), '📥');
+    assert.equal(getPinnedResultIcon('notion-page'), '📝');
+    assert.equal(getPinnedResultIcon('notion-data-source'), '🗃️');
   });
 });
 
