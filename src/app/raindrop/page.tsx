@@ -265,33 +265,29 @@ function PinnedResults({
   loading: boolean;
   error: string | null;
 }) {
+  let content: ReactNode;
+
   if (loading) {
-    return (
+    content = (
       <div className="flex items-center justify-center gap-3 rounded-2xl border border-base-300/80 px-4 py-7 text-sm text-base-content/70">
         <span className="loading loading-spinner loading-sm" />
         Loading pinned results...
       </div>
     );
-  }
-
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <div className="rounded-2xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
         {error}
       </div>
     );
-  }
-
-  if (results.length === 0) {
-    return (
+  } else if (results.length === 0) {
+    content = (
       <div className="rounded-2xl border border-dashed border-base-300/80 px-4 py-7 text-center text-sm text-base-content/60">
         No pinned results found in Raindrop backup.
       </div>
     );
-  }
-
-  return (
-    <div className={styles.pinnedSection}>
+  } else {
+    content = (
       <div className={styles.pinnedTags}>
         {results.map((result, index) => {
           const colors = getPinnedResultColor(result.href);
@@ -318,8 +314,10 @@ function PinnedResults({
           );
         })}
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <div className={styles.pinnedSection}>{content}</div>;
 }
 
 function SessionTree({ details }: { details: SessionDetails }) {
