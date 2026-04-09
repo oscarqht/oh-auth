@@ -25,6 +25,13 @@ import {
   getRaindropAuthHref,
 } from '@/lib/raindrop-client';
 import {
+  clearRaindropWorkspaceCache,
+  loadCachedRaindropPinnedResults,
+  loadCachedRaindropSessions,
+  saveCachedRaindropPinnedResults,
+  saveCachedRaindropSessions,
+} from '@/lib/raindrop-workspace-cache';
+import {
   areStoredProviderTokensEqual,
   type StoredProviderTokens,
 } from '@/lib/raindrop-web-auth';
@@ -277,14 +284,14 @@ function PinnedResults({
 }) {
   let content: ReactNode;
 
-  if (loading) {
+  if (loading && results.length === 0) {
     content = (
       <div className="flex items-center justify-center gap-3 rounded-2xl border border-base-300/80 px-4 py-7 text-sm text-base-content/70">
         <span className="loading loading-spinner loading-sm" />
         Loading pinned results...
       </div>
     );
-  } else if (error) {
+  } else if (error && results.length === 0) {
     content = (
       <div className="rounded-2xl border border-error/20 bg-error/5 px-4 py-6 text-sm text-error">
         {error}
@@ -326,7 +333,22 @@ function PinnedResults({
     );
   }
 
-  return <div className={styles.pinnedSection}>{content}</div>;
+  return (
+    <div className={styles.pinnedSection}>
+      {results.length > 0 && (loading || error) ? (
+        <div
+          className={`mb-3 rounded-2xl px-3 py-2 text-xs ${
+            error
+              ? 'border border-error/20 bg-error/5 text-error'
+              : 'border border-base-300/80 bg-base-100/70 text-base-content/55'
+          }`}
+        >
+          {error ? error : 'Refreshing pinned results...'}
+        </div>
+      ) : null}
+      {content}
+    </div>
+  );
 }
 
 function SessionTree({ details }: { details: SessionDetails }) {
@@ -418,12 +440,16 @@ export default function RaindropPage() {
     useState<RaindropSearchResponse | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [pinnedResults, setPinnedResults] = useState<PinnedRaindropResult[]>([]);
+  const [pinnedResults, setPinnedResults] = useState<PinnedRaindropResult[]>(() =>
+    loadCachedRaindropPinnedResults().map(toPinnedRaindropResult),
+  );
   const [pinnedResultsLoading, setPinnedResultsLoading] = useState(false);
   const [pinnedResultsError, setPinnedResultsError] = useState<string | null>(
     null,
   );
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>(() =>
+    loadCachedRaindropSessions(),
+  );
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [expandedSessions, setExpandedSessions] = useState<Record<number, boolean>>(
@@ -501,6 +527,7 @@ export default function RaindropPage() {
       currentTokens,
     );
     setSessions(response.sessions);
+    saveCachedRaindropSessions(response.sessions);
   }
 
   async function loadPinnedResults() {
@@ -517,9 +544,9 @@ export default function RaindropPage() {
         '/api/raindrop/pinned-results',
         nextTokens,
       );
+      saveCachedRaindropPinnedResults(response.results);
       setPinnedResults(response.results.map(toPinnedRaindropResult));
     } catch (error) {
-      setPinnedResults([]);
       setPinnedResultsError(
         error instanceof Error
           ? error.message
@@ -571,12 +598,14 @@ export default function RaindropPage() {
 
   function handleReconnect() {
     clearStoredRaindropTokens();
+    clearRaindropWorkspaceCache();
     setAuthState('redirecting');
     window.location.replace(getRaindropAuthHref('/raindrop'));
   }
 
   function handleLogout() {
     clearStoredRaindropTokens();
+    clearRaindropWorkspaceCache();
     setTokens(null);
     setSearchResponse(null);
     setPinnedResults([]);
