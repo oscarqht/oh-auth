@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
 import Image from 'next/image';
@@ -119,6 +120,16 @@ function getBadgeClassName(tone: 'ghost' | 'accent') {
   return `badge badge-sm ${tone === 'accent' ? 'badge-accent' : 'badge-ghost'}`;
 }
 
+function isPlainLeftClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+  return (
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
+
 function SearchResultRow({
   icon,
   href,
@@ -132,13 +143,12 @@ function SearchResultRow({
   title: string;
   subtitle: string;
   badges: ReactNode;
-  onClick?: () => void;
+  onClick?: (event: ReactMouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <div className={styles.resultCard}>
       <a
         href={href}
-        target="_blank"
         rel="noreferrer"
         className={styles.resultLink}
         onClick={onClick}
@@ -165,7 +175,7 @@ function SearchResults({
   query: string;
   searching: boolean;
   error: string | null;
-  onResultClick?: () => void;
+  onResultClick?: (event: ReactMouseEvent<HTMLAnchorElement>) => void;
 }) {
   if (query.trim().length < 3) {
     return null;
@@ -296,7 +306,6 @@ function PinnedResults({
             <a
               key={result.key}
               href={result.href}
-              target="_blank"
               rel="noreferrer"
               className={styles.pinnedTag}
               style={
@@ -347,7 +356,6 @@ function SessionTree({ details }: { details: SessionDetails }) {
                   <a
                     key={`tab-${node.id}-${nodeIndex}`}
                     href={node.url}
-                    target="_blank"
                     rel="noreferrer"
                     className="flex items-start justify-between gap-3 overflow-hidden rounded-md px-2 py-2 text-sm transition hover:bg-base-200"
                   >
@@ -376,7 +384,6 @@ function SessionTree({ details }: { details: SessionDetails }) {
                       <a
                         key={`group-tab-${tab.id}`}
                         href={tab.url}
-                        target="_blank"
                         rel="noreferrer"
                         className="flex items-start justify-between gap-3 overflow-hidden rounded-md px-2 py-2 text-sm transition hover:bg-base-200"
                       >
@@ -920,7 +927,11 @@ export default function RaindropPage() {
                       query={query}
                       searching={searching}
                       error={searchError}
-                      onResultClick={() => {
+                      onResultClick={(event) => {
+                        if (!isPlainLeftClick(event)) {
+                          return;
+                        }
+
                         setQuery('');
                         searchInputRef.current?.blur();
                       }}
@@ -1010,7 +1021,6 @@ export default function RaindropPage() {
                         </button>
                         <a
                           href={getCollectionHref(session.id)}
-                          target="_blank"
                           rel="noreferrer"
                           className={styles.sessionLink}
                         >
