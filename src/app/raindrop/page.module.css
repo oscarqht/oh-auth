@@ -228,7 +228,7 @@
   max-height: 30rem;
   overflow: auto;
   min-height: 0;
-  padding-right: 0.2rem;
+  padding: 0.3rem;
 }
 
 .pinnedSection {
@@ -320,6 +320,14 @@
   background: hsl(var(--b1) / 0.92);
 }
 
+.resultCardSelected {
+  border-color: rgb(185 113 85 / 0.52);
+  background: rgb(185 113 85 / 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgb(185 113 85 / 0.12),
+    0 0 0 3px rgb(185 113 85 / 0.12);
+}
+
 :global([data-theme='dark']) .resultCard {
   border-color: rgb(194 208 246 / 0.14);
   background: rgb(18 24 36 / 0.72);
@@ -330,11 +338,23 @@
   background: rgb(22 29 42 / 0.9);
 }
 
+:global([data-theme='dark']) .resultCardSelected {
+  border-color: rgb(201 138 104 / 0.58);
+  background: rgb(201 138 104 / 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgb(201 138 104 / 0.16),
+    0 0 0 3px rgb(201 138 104 / 0.16);
+}
+
 .resultLink {
   flex: 1;
   min-width: 0;
   color: inherit;
   text-decoration: none;
+}
+
+.resultLink:focus-visible {
+  outline: 0;
 }
 
 .resultTopRow {

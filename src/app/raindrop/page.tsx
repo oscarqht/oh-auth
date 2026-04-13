@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
@@ -41,6 +42,7 @@ import {
   toPinnedRaindropResult,
   type PinnedRaindropResult,
 } from '@/lib/raindrop-pins';
+import { getCycledSearchResultIndex } from '@/lib/raindrop-search-navigation';
 import styles from './page.module.css';
 
 type AuthState = 'checking' | 'redirecting' | 'ready' | 'error';
@@ -127,6 +129,14 @@ function getBadgeClassName(tone: 'ghost' | 'accent') {
   return `badge badge-sm ${tone === 'accent' ? 'badge-accent' : 'badge-ghost'}`;
 }
 
+function getSearchResultHref(result: SearchResult) {
+  if (result.type === 'raindrop') {
+    return result.data.link;
+  }
+
+  return getCollectionHref(result.data._id);
+}
+
 function isPlainLeftClick(event: ReactMouseEvent<HTMLAnchorElement>) {
   return (
     event.button === 0 &&
@@ -143,6 +153,9 @@ function SearchResultRow({
   title,
   subtitle,
   badges,
+  selected = false,
+  resultId,
+  resultRef,
   onClick,
 }: {
   icon: string;
@@ -150,14 +163,23 @@ function SearchResultRow({
   title: string;
   subtitle: string;
   badges: ReactNode;
+  selected?: boolean;
+  resultId?: string;
+  resultRef?: (node: HTMLAnchorElement | null) => void;
   onClick?: (event: ReactMouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
-    <div className={styles.resultCard}>
+    <div
+      className={`${styles.resultCard} ${selected ? styles.resultCardSelected : ''}`}
+    >
       <a
+        id={resultId}
+        ref={resultRef}
         href={href}
         rel="noreferrer"
         className={styles.resultLink}
+        role="option"
+        aria-selected={selected}
         onClick={onClick}
       >
         <div className={styles.resultTopRow}>
@@ -176,12 +198,16 @@ function SearchResults({
   query,
   searching,
   error,
+  selectedIndex,
+  getResultRef,
   onResultClick,
 }: {
   results: SearchResult[];
   query: string;
   searching: boolean;
   error: string | null;
+  selectedIndex: number | null;
+  getResultRef: (index: number) => (node: HTMLAnchorElement | null) => void;
   onResultClick?: (event: ReactMouseEvent<HTMLAnchorElement>) => void;
 }) {
   if (query.trim().length < 3) {
@@ -214,16 +240,22 @@ function SearchResults({
   }
 
   return (
-    <div className={styles.resultsList}>
-      {results.map((result) => {
+    <div className={styles.resultsList} role="listbox" id="raindrop-search-results">
+      {results.map((result, index) => {
+        const href = getSearchResultHref(result);
+        const selected = index === selectedIndex;
+
         if (result.type === 'raindrop') {
           return (
             <SearchResultRow
               key={`item-${result.data._id}`}
               icon="💧"
-              href={result.data.link}
+              href={href}
               title={result.data.title || result.data.link}
               subtitle={result.data.link}
+              selected={selected}
+              resultId={`raindrop-search-result-${index}`}
+              resultRef={getResultRef(index)}
               badges={
                 result.data.collectionTitle ? (
                   <span
@@ -243,10 +275,13 @@ function SearchResults({
         return (
           <SearchResultRow
             key={`collection-${result.data._id}`}
-            href={getCollectionHref(result.data._id)}
+            href={href}
             icon="📥"
             title={result.data.title}
             subtitle="Open collection in Raindrop"
+            selected={selected}
+            resultId={`raindrop-search-result-${index}`}
+            resultRef={getResultRef(index)}
             badges={
               <>
                 {typeof result.data.count === 'number' ? (
@@ -440,6 +475,9 @@ export default function RaindropPage() {
     useState<RaindropSearchResponse | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [selectedSearchIndex, setSelectedSearchIndex] = useState<number | null>(
+    null,
+  );
   const [pinnedResults, setPinnedResults] = useState<PinnedRaindropResult[]>(() =>
     loadCachedRaindropPinnedResults().map(toPinnedRaindropResult),
   );
@@ -466,6 +504,7 @@ export default function RaindropPage() {
   >({});
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchResultRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
   const searchResults = useMemo(
     () => buildSearchResults(searchResponse),
@@ -779,6 +818,63 @@ export default function RaindropPage() {
     };
   }, [query]);
 
+  useEffect(() => {
+    setSelectedSearchIndex(null);
+  }, [query]);
+
+  useEffect(() => {
+    if (!showSearchResults || searching || searchError || searchResults.length === 0) {
+      setSelectedSearchIndex(null);
+      return;
+    }
+
+    setSelectedSearchIndex((current) => {
+      if (current === null || current < 0 || current >= searchResults.length) {
+        return null;
+      }
+
+      return current;
+    });
+  }, [searchError, searchResults.length, searching, showSearchResults]);
+
+  useEffect(() => {
+    if (selectedSearchIndex === null) {
+      return;
+    }
+
+    searchResultRefs.current[selectedSearchIndex]?.scrollIntoView({
+      block: 'nearest',
+    });
+  }, [selectedSearchIndex]);
+
+  function handleSearchInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (!showSearchResults || searching || searchError || searchResults.length === 0) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelectedSearchIndex((current) =>
+        getCycledSearchResultIndex(
+          current,
+          event.key === 'ArrowDown' ? 'next' : 'previous',
+          searchResults.length,
+        ),
+      );
+      return;
+    }
+
+    if (event.key === 'Enter' && selectedSearchIndex !== null) {
+      const selectedResult = searchResults[selectedSearchIndex];
+      if (!selectedResult) {
+        return;
+      }
+
+      event.preventDefault();
+      window.location.assign(getSearchResultHref(selectedResult));
+    }
+  }
+
   if (authState === 'checking' || authState === 'redirecting') {
     return (
       <main className={`${nunito.className} ${styles.page}`}>
@@ -930,8 +1026,18 @@ export default function RaindropPage() {
                       type="text"
                       autoFocus
                       inputMode="search"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-controls={showSearchResults ? 'raindrop-search-results' : undefined}
+                      aria-expanded={showSearchResults}
+                      aria-activedescendant={
+                        selectedSearchIndex !== null
+                          ? `raindrop-search-result-${selectedSearchIndex}`
+                          : undefined
+                      }
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
+                      onKeyDown={handleSearchInputKeyDown}
                       placeholder="Search bookmarks..."
                       className={styles.softInputField}
                     />
@@ -956,6 +1062,10 @@ export default function RaindropPage() {
                       query={query}
                       searching={searching}
                       error={searchError}
+                      selectedIndex={selectedSearchIndex}
+                      getResultRef={(index) => (node) => {
+                        searchResultRefs.current[index] = node;
+                      }}
                       onResultClick={(event) => {
                         if (!isPlainLeftClick(event)) {
                           return;
