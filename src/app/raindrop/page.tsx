@@ -370,9 +370,10 @@ function PinnedResults({
 
   return (
     <div className={styles.pinnedSection}>
+      {content}
       {results.length > 0 && (loading || error) ? (
         <div
-          className={`mb-3 rounded-2xl px-3 py-2 text-xs ${
+          className={`mt-3 rounded-2xl px-3 py-2 text-xs ${
             error
               ? 'border border-error/20 bg-error/5 text-error'
               : 'border border-base-300/80 bg-base-100/70 text-base-content/55'
@@ -381,7 +382,6 @@ function PinnedResults({
           {error ? error : 'Refreshing pinned results...'}
         </div>
       ) : null}
-      {content}
     </div>
   );
 }
