@@ -12,8 +12,8 @@ describe('sanitizeWebRedirectTarget', () => {
   it('accepts same-origin relative paths', () => {
     assert.equal(sanitizeWebRedirectTarget('/raindrop'), '/raindrop');
     assert.equal(
-      sanitizeWebRedirectTarget('/raindrop?view=sessions'),
-      '/raindrop?view=sessions',
+      sanitizeWebRedirectTarget('/raindrop?source=web'),
+      '/raindrop?source=web',
     );
   });
 
