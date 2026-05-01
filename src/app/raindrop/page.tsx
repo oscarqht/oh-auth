@@ -39,6 +39,7 @@ import {
   type PinnedRaindropResult,
 } from '@/lib/raindrop-pins';
 import { getCycledSearchResultIndex } from '@/lib/raindrop-search-navigation';
+import { buildBookmarkSearchSubmitHref } from '@/lib/raindrop-search-submit';
 import styles from './page.module.css';
 
 type AuthState = 'checking' | 'redirecting' | 'ready' | 'error';
@@ -653,6 +654,15 @@ export default function RaindropPage() {
   }, [selectedSearchIndex]);
 
   function handleSearchInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      const submitHref = buildBookmarkSearchSubmitHref(query);
+      if (submitHref) {
+        event.preventDefault();
+        window.location.assign(submitHref);
+        return;
+      }
+    }
+
     if (!showSearchResults || searching || searchError || searchResults.length === 0) {
       return;
     }
