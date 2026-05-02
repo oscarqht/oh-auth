@@ -654,16 +654,15 @@ export default function RaindropPage() {
   }, [selectedSearchIndex]);
 
   function handleSearchInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
-      const submitHref = buildBookmarkSearchSubmitHref(query);
-      if (submitHref) {
-        event.preventDefault();
-        window.location.assign(submitHref);
-        return;
-      }
-    }
-
     if (!showSearchResults || searching || searchError || searchResults.length === 0) {
+      if (event.key === 'Enter') {
+        const submitHref = buildBookmarkSearchSubmitHref(query);
+        if (submitHref) {
+          event.preventDefault();
+          window.location.assign(submitHref);
+        }
+      }
+
       return;
     }
 
@@ -687,6 +686,15 @@ export default function RaindropPage() {
 
       event.preventDefault();
       window.location.assign(getSearchResultHref(selectedResult));
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      const submitHref = buildBookmarkSearchSubmitHref(query);
+      if (submitHref) {
+        event.preventDefault();
+        window.location.assign(submitHref);
+      }
     }
   }
 
